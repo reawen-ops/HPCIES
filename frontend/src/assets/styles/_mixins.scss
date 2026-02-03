@@ -1,0 +1,265 @@
+// ============================================
+// SCSS Mixins
+// ============================================
+
+@use "../styles/variables" as *;
+
+// Flexbox utilities
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+@mixin flex-column-center {
+  @include flex-column;
+  align-items: center;
+  justify-content: center;
+}
+
+// Card styles
+@mixin card {
+  background-color: $card-bg;
+  border-radius: $radius-xl;
+  padding: $spacing-xl;
+  box-shadow: $shadow;
+  transition:
+    transform $transition-base,
+    box-shadow $transition-base;
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: $shadow-hover;
+  }
+}
+
+@mixin card-hover {
+  transition: transform $transition-base;
+
+  &:hover {
+    transform: translateY(-5px);
+  }
+}
+
+// Button styles
+@mixin button-base {
+  display: inline-block;
+  padding: $spacing-md $spacing-xxl;
+  border: none;
+  border-radius: $radius-lg;
+  font-size: $font-size-md;
+  font-weight: $font-weight-medium;
+  cursor: pointer;
+  transition: all $transition-base;
+  text-align: center;
+  font-family: $font-family-base;
+}
+
+@mixin button-primary {
+  @include button-base;
+  background-color: $primary-color;
+  color: white;
+
+  &:hover {
+    background-color: $primary-dark;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+@mixin button-secondary {
+  @include button-base;
+  background-color: $secondary-color;
+  color: $text-primary;
+
+  &:hover {
+    background-color: darken($secondary-color, 5%);
+  }
+}
+
+@mixin button-block {
+  display: block;
+  width: 100%;
+}
+
+// Form controls
+@mixin form-control {
+  width: 100%;
+  padding: $spacing-md $spacing-lg;
+  border: 1px solid $border-color;
+  border-radius: $radius-lg;
+  font-size: $font-size-md;
+  transition: border-color $transition-base;
+  font-family: $font-family-base;
+
+  &:focus {
+    outline: none;
+    border-color: $primary-color;
+    box-shadow: 0 0 0 3px rgba($primary-color, 0.2);
+  }
+
+  &:disabled {
+    background-color: $secondary-color;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+@mixin form-label {
+  display: block;
+  margin-bottom: $spacing-sm;
+  font-weight: $font-weight-medium;
+  color: $text-primary;
+}
+
+// Responsive breakpoints
+@mixin respond-to($breakpoint) {
+  @if $breakpoint == xs {
+    @media (max-width: $breakpoint-xs) {
+      @content;
+    }
+  } @else if $breakpoint == sm {
+    @media (max-width: $breakpoint-sm) {
+      @content;
+    }
+  } @else if $breakpoint == md {
+    @media (max-width: $breakpoint-md) {
+      @content;
+    }
+  } @else if $breakpoint == lg {
+    @media (max-width: $breakpoint-lg) {
+      @content;
+    }
+  } @else if $breakpoint == xl {
+    @media (max-width: $breakpoint-xl) {
+      @content;
+    }
+  } @else {
+    @media (max-width: $breakpoint) {
+      @content;
+    }
+  }
+}
+
+@mixin respond-above($breakpoint) {
+  @if $breakpoint == xs {
+    @media (min-width: #{$breakpoint-xs + 1px}) {
+      @content;
+    }
+  } @else if $breakpoint == sm {
+    @media (min-width: #{$breakpoint-sm + 1px}) {
+      @content;
+    }
+  } @else if $breakpoint == md {
+    @media (min-width: #{$breakpoint-md + 1px}) {
+      @content;
+    }
+  } @else if $breakpoint == lg {
+    @media (min-width: #{$breakpoint-lg + 1px}) {
+      @content;
+    }
+  } @else if $breakpoint == xl {
+    @media (min-width: #{$breakpoint-xl + 1px}) {
+      @content;
+    }
+  } @else {
+    @media (min-width: #{$breakpoint + 1px}) {
+      @content;
+    }
+  }
+}
+
+// Text utilities
+@mixin text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@mixin text-ellipsis($lines: 2) {
+  display: -webkit-box;
+  -webkit-line-clamp: $lines;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+// Scrollbar styling
+@mixin custom-scrollbar {
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: $secondary-color;
+    border-radius: $radius-sm;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $border-color;
+    border-radius: $radius-sm;
+
+    &:hover {
+      background: darken($border-color, 10%);
+    }
+  }
+}
+
+// Gradient backgrounds
+@mixin gradient-primary {
+  background: linear-gradient(135deg, $primary-color, $primary-dark);
+}
+
+@mixin gradient-overlay($opacity: 0.7) {
+  background-color: rgba(0, 0, 0, $opacity);
+}
+
+// Animation utilities
+@mixin fade-in($duration: $transition-base) {
+  animation: fadeIn $duration ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@mixin slide-up($duration: $transition-base) {
+  animation: slideUp $duration ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+// Status dots
+@mixin status-dot($size: 10px) {
+  width: $size;
+  height: $size;
+  border-radius: 50%;
+  display: inline-block;
+}

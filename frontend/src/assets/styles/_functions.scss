@@ -1,0 +1,41 @@
+// ============================================
+// SCSS Functions
+// ============================================
+
+@use './variables' as *;
+
+// Color manipulation functions
+@function lighten-color($color, $percentage) {
+  @return mix(white, $color, $percentage);
+}
+
+@function darken-color($color, $percentage) {
+  @return mix(black, $color, $percentage);
+}
+
+@function rgba-color($color, $alpha) {
+  @return rgba($color, $alpha);
+}
+
+// Spacing function
+@function spacing($multiplier: 1) {
+  @return $spacing-md * $multiplier;
+}
+
+// Z-index function
+@function z($layer) {
+  @if $layer == 'base' {
+    @return $z-index-base;
+  } @else if $layer == 'dropdown' {
+    @return $z-index-dropdown;
+  } @else if $layer == 'sticky' {
+    @return $z-index-sticky;
+  } @else if $layer == 'modal' {
+    @return $z-index-modal;
+  } @else if $layer == 'tooltip' {
+    @return $z-index-tooltip;
+  } @else {
+    @return $layer;
+  }
+}
+

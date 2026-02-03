@@ -1,0 +1,81 @@
+// ============================================
+// Main Styles Entry Point
+// ============================================
+
+@use './variables' as *;
+@use './mixins' as *;
+@use './functions' as *;
+
+// Global CSS Variables (for compatibility with existing CSS)
+:root {
+  --primary-color: #{$primary-color};
+  --primary-light: #{$primary-light};
+  --primary-dark: #{$primary-dark};
+  --secondary-color: #{$secondary-color};
+  --accent-color: #{$accent-color};
+  --success-color: #{$success-color};
+  --warning-color: #{$warning-color};
+  --danger-color: #{$danger-color};
+  --text-primary: #{$text-primary};
+  --text-secondary: #{$text-secondary};
+  --border-color: #{$border-color};
+  --card-bg: #{$card-bg};
+  --shadow: #{$shadow};
+  --shadow-hover: #{$shadow-hover};
+}
+
+// Global Reset
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: $font-family-base;
+  background-color: $bg-primary;
+  color: $text-primary;
+  min-height: 100vh;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// Responsive utilities
+@include respond-to(md) {
+  .main-container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: 250px;
+    border-right: none;
+    border-bottom: 1px solid $border-color;
+  }
+
+  .matrix-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+@include respond-to(lg) {
+  .matrix-grid {
+    grid-template-columns: repeat(8, 1fr);
+  }
+}
+
+@include respond-to(sm) {
+  .stats-card {
+    flex-direction: column;
+  }
+
+  .matrix-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+
+  .config-row {
+    flex-direction: column;
+  }
+}
+

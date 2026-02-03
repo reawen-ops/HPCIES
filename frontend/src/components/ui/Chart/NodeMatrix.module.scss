@@ -1,65 +1,73 @@
+@use "../../../assets/styles/mixins" as *;
+@use "../../../assets/styles/variables" as *;
+
 .node-matrix {
-  background-color: var(--card-bg);
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: var(--shadow);
+  @include card;
+  padding: $spacing-xl;
+  margin-bottom: $spacing-xl;
 }
 
 .matrix-title {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 15px;
-  color: var(--primary-dark);
+  font-size: $font-size-lg;
+  font-weight: $font-weight-medium;
+  margin-bottom: $spacing-lg;
+  color: $primary-dark;
 }
 
 .legend {
   display: flex;
-  gap: 20px;
-  margin-bottom: 15px;
+  gap: $spacing-xl;
+  margin-bottom: $spacing-lg;
 }
 
 .legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  @include flex-center;
+  gap: $spacing-sm;
 }
 
 .node {
   width: 40px;
   height: 40px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border-radius: $radius-md;
+  @include flex-center;
   color: white;
-  font-weight: 600;
-  font-size: 12px;
+  font-weight: $font-weight-medium;
+  font-size: $font-size-sm;
   cursor: pointer;
-  transition: transform 0.2s;
-}
+  transition: transform $transition-fast;
 
-.node:hover {
-  transform: scale(1.1);
-}
+  &:hover {
+    transform: scale(1.1);
+  }
 
-.node-running {
-  background-color: var(--success-color);
-}
+  &-running {
+    background-color: $success-color;
+  }
 
-.node-sleeping {
-  background-color: var(--danger-color);
-}
+  &-sleeping {
+    background-color: $danger-color;
+  }
 
-.node-to-sleep {
-  background-color: var(--warning-color);
+  &-to-sleep {
+    background-color: $warning-color;
+  }
 }
 
 .matrix-grid {
   display: grid;
   grid-template-columns: repeat(10, 1fr);
-  gap: 8px;
-  margin-top: 10px;
+  gap: $spacing-sm;
+  margin-top: $spacing-md;
+
+  @include respond-to(lg) {
+    grid-template-columns: repeat(8, 1fr);
+  }
+
+  @include respond-to(md) {
+    grid-template-columns: repeat(6, 1fr);
+  }
+
+  @include respond-to(sm) {
+    grid-template-columns: repeat(5, 1fr);
+  }
 }
-
-

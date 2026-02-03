@@ -1,3 +1,6 @@
+@use "../../../assets/styles/mixins" as *;
+
 .content-scroll-panel {
   overflow-y: auto;
+  @include custom-scrollbar;
 }

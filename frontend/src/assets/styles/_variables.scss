@@ -1,0 +1,82 @@
+// ============================================
+// SCSS Variables
+// ============================================
+
+// Colors
+$primary-color: #1e88e5;
+$primary-light: #6ab7ff;
+$primary-dark: #005cb2;
+$secondary-color: #f5f7fa;
+$accent-color: #00bcd4;
+$success-color: #4caf50;
+$warning-color: #ff9800;
+$danger-color: #f44336;
+
+// Text Colors
+$text-primary: #263238;
+$text-secondary: #546e7a;
+
+// Background Colors
+$bg-primary: #f8fafc;
+$card-bg: #ffffff;
+$border-color: #e0e0e0;
+
+// Social Media Colors
+$wechat-color: #09bb07;
+$qq-color: #12b7f5;
+$alipay-color: #00a0e9;
+
+// Shadows
+$shadow: 0 4px 12px rgba(30, 136, 229, 0.1);
+$shadow-hover: 0 8px 24px rgba(30, 136, 229, 0.15);
+$shadow-modal: 0 10px 40px rgba(0, 0, 0, 0.2);
+
+// Spacing
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 20px;
+$spacing-xxl: 24px;
+$spacing-xxxl: 30px;
+
+// Border Radius
+$radius-sm: 4px;
+$radius-md: 6px;
+$radius-lg: 8px;
+$radius-xl: 12px;
+
+// Transitions
+$transition-fast: 0.2s;
+$transition-base: 0.3s;
+$transition-slow: 0.5s;
+
+// Typography
+$font-family-base: "Segoe UI", "Microsoft YaHei", sans-serif;
+$font-size-xs: 10px;
+$font-size-sm: 12px;
+$font-size-base: 14px;
+$font-size-md: 16px;
+$font-size-lg: 18px;
+$font-size-xl: 24px;
+$font-size-xxl: 28px;
+$font-size-xxxl: 32px;
+
+$font-weight-normal: 400;
+$font-weight-medium: 600;
+$font-weight-bold: 700;
+
+// Breakpoints
+$breakpoint-xs: 480px;
+$breakpoint-sm: 768px;
+$breakpoint-md: 992px;
+$breakpoint-lg: 1200px;
+$breakpoint-xl: 1440px;
+
+// Z-index layers
+$z-index-base: 1;
+$z-index-dropdown: 100;
+$z-index-sticky: 200;
+$z-index-modal: 1000;
+$z-index-tooltip: 1100;
+
