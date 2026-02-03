@@ -16,7 +16,7 @@ const StatisticsInfo = () => {
         <div className={styles["stat-value"]}>84</div>
       </div>
       <div className={styles["stat-item"]}>
-        <div className={styles["stat-title"]}>今日任务数</div>
+        <div className={styles["stat-title"]}>今日预计任务数</div>
         <div className={styles["stat-value"]}>312</div>
       </div>
     </div>

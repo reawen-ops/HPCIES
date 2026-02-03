@@ -1,16 +1,65 @@
-import styles from "./welcome.module.scss";
+import {
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
+import styles from "./Welcome.module.scss";
 import { FaCloudUploadAlt } from "react-icons/fa";
 
-const Welcome = () => {
+interface WelcomeProps {
+  onComplete?: (config: { nodeCount: number; corePerNode: number }) => void;
+}
+
+const Welcome = ({ onComplete }: WelcomeProps) => {
+  const [nodeCount, setNodeCount] = useState<string>("");
+  const [corePerNode, setCorePerNode] = useState<string>("");
+  const [fileName, setFileName] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!fileName) {
+      // 与原始页面保持一致：要求先上传文件
+      // eslint-disable-next-line no-alert
+      alert("请上传HPC使用数据文件");
+      return;
+    }
+
+    const parsedNodeCount = Number.parseInt(nodeCount, 10) || 0;
+    const parsedCorePerNode = Number.parseInt(corePerNode, 10) || 0;
+
+    onComplete?.({
+      nodeCount: parsedNodeCount,
+      corePerNode: parsedCorePerNode,
+    });
+  };
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setFileName(file.name);
+    }
+  };
+
+  const handleClickUpload = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
-    <div id="welcome-modal" className={styles["welcome-modal"]}>
+    <div className={styles["welcome-modal"]}>
       <div className={styles["welcome-content"]}>
         <h2 className={styles["welcome-title"]}>欢迎使用HPC能源管家</h2>
         <p className={styles["welcome-text"]}>
           这是您第一次使用本系统。为了为您提供准确的预测和节能策略，请先配置您的HPC集群基本信息并上传历史使用数据。
         </p>
 
-        <form id="config-form" className={styles["config-form"]}>
+        <form
+          id="config-form"
+          className={styles["config-form"]}
+          onSubmit={handleSubmit}
+        >
           <div className={styles["config-row"]}>
             <div className={styles["config-group"]}>
               <label className={styles["form-label"]} htmlFor="node-count">
@@ -22,7 +71,9 @@ const Welcome = () => {
                 className={styles["form-control"]}
                 placeholder="例如：128"
                 required
-                min="1"
+                min={1}
+                value={nodeCount}
+                onChange={(e) => setNodeCount(e.target.value)}
               />
             </div>
 
@@ -36,7 +87,9 @@ const Welcome = () => {
                 className={styles["form-control"]}
                 placeholder="例如：32"
                 required
-                min="1"
+                min={1}
+                value={corePerNode}
+                onChange={(e) => setCorePerNode(e.target.value)}
               />
             </div>
           </div>
@@ -45,7 +98,11 @@ const Welcome = () => {
             <label className={styles["form-label"]}>
               上传HPC使用数据 (.csv文件)
             </label>
-            <div className={styles["file-upload"]} id="file-upload-area">
+            <div
+              className={styles["file-upload"]}
+              id="file-upload-area"
+              onClick={handleClickUpload}
+            >
               <FaCloudUploadAlt />
               <p>点击或将文件拖拽到此处上传</p>
               <p className={styles["file-info"]}>
@@ -53,13 +110,17 @@ const Welcome = () => {
               </p>
             </div>
             <input
+              ref={fileInputRef}
               title="请选择一个文件"
               type="file"
               id="file-input"
               accept=".csv"
               className={styles["hidden"]}
+              onChange={handleFileChange}
             />
-            <div id="file-name" className={styles["file-info"]}></div>
+            <div id="file-name" className={styles["file-info"]}>
+              {fileName ? `已选择文件: ${fileName}` : ""}
+            </div>
           </div>
 
           <div className={styles["config-btn"]}>

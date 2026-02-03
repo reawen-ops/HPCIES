@@ -2,6 +2,7 @@ import styles from "./RegisterForm.module.scss";
 import { IoLogoWechat } from "react-icons/io5";
 import { FaQq } from "react-icons/fa";
 import { FaAlipay } from "react-icons/fa";
+import { Link } from "react-router-dom";
 
 const RegisterForm = () => {
   return (
@@ -121,9 +122,9 @@ const RegisterForm = () => {
 
         <p className={styles["text-center"] + " " + styles.mt20}>
           已有账户？
-          <a href="#" className={styles.link} id="go-to-login">
+          <Link to="/login" className={styles.link}>
             立即登录
-          </a>
+          </Link>
         </p>
       </form>
     </div>
