@@ -11,15 +11,8 @@ import styles from "./MainPage.module.scss";
 
 const MainPage = () => {
   const [showWelcome, setShowWelcome] = useState(true);
-  const [nodeCount, setNodeCount] = useState<number>(128);
 
-  const handleCompleteConfig = (config: {
-    nodeCount: number;
-    corePerNode: number;
-  }) => {
-    if (config.nodeCount > 0) {
-      setNodeCount(config.nodeCount);
-    }
+  const handleCompleteConfig = () => {
     setShowWelcome(false);
   };
 
@@ -32,7 +25,7 @@ const MainPage = () => {
           <ScrollPanel>
             <StatisticsInfo />
             <PredictionChart />
-            <NodeMatrix nodeCount={nodeCount} />
+            <NodeMatrix />
             <ChatContainer />
           </ScrollPanel>
         </div>

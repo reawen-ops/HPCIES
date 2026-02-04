@@ -1,26 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { FaBolt, FaChartLine, FaLeaf, FaTasks } from "react-icons/fa";
+import { fetchPrediction, type PredictionResponse } from "../../../api";
 import styles from "./PredictionChart.module.scss";
 
 type RangeOption = "今日" | "未来3天" | "未来7天";
 type DisplayMode = "对比模式" | "仅全开" | "仅节能";
 
-const labels = Array.from({ length: 24 }, (_, i) => `${i}:00`);
-
-const fullLoadData = [
-  15, 12, 10, 8, 6, 8, 15, 28, 42, 56, 68, 72, 75, 70, 65, 58, 52, 48, 55, 62,
-  58, 45, 32, 20,
-];
-
-const energySavingData = [
-  15, 10, 5, 3, 2, 4, 12, 25, 38, 50, 60, 65, 68, 62, 55, 45, 40, 38, 45, 55,
-  50, 38, 25, 15,
-];
-
 const PredictionChart = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [range, setRange] = useState<RangeOption>("今日");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("对比模式");
+  const [data, setData] = useState<PredictionResponse | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -29,8 +19,18 @@ const PredictionChart = () => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    drawChart(ctx, displayMode);
-  }, [displayMode, range]);
+    if (data && data.full_load.length > 0 && data.energy_saving.length > 0) {
+      drawChart(ctx, displayMode, data.full_load, data.energy_saving);
+    }
+  }, [displayMode, range, data]);
+
+  useEffect(() => {
+    fetchPrediction()
+      .then(setData)
+      .catch(() => {
+        // 保持为空，不阻塞页面其它部分
+      });
+  }, []);
 
   const onRangeClick = (option: RangeOption) => {
     setRange(option);
@@ -49,39 +49,41 @@ const PredictionChart = () => {
             <FaChartLine />
             今日核使用率预测曲线
           </h3>
-          <div className={styles["chart-legend"]}>
-            <div className={styles["legend-item"]}>
-              <span
-                className={styles["legend-color"] + " " + styles["color-open"]}
-              />
-              <span>全开模式</span>
+          {data && (
+            <div className={styles["chart-legend"]}>
+              <div className={styles["legend-item"]}>
+                <span
+                  className={styles["legend-color"] + " " + styles["color-open"]}
+                />
+                <span>全开模式</span>
+              </div>
+              <div className={styles["legend-item"]}>
+                <span
+                  className={
+                    styles["legend-color"] + " " + styles["color-saving"]
+                  }
+                />
+                <span>节能模式</span>
+              </div>
             </div>
-            <div className={styles["legend-item"]}>
-              <span
-                className={
-                  styles["legend-color"] + " " + styles["color-saving"]
-                }
-              />
-              <span>节能模式</span>
-            </div>
-          </div>
+          )}
         </div>
         <div className={styles["chart-content"]}>
-          <canvas
-            ref={canvasRef}
-            id="prediction-chart"
-            width={900}
-            height={180}
-          />
+          {data && data.full_load.length > 0 && data.energy_saving.length > 0 ? (
+            <canvas
+              ref={canvasRef}
+              id="prediction-chart"
+              width={900}
+              height={180}
+            />
+          ) : (
+            <span>预测数据待获取</span>
+          )}
         </div>
         <div className={styles["time-axis"]}>
-          <span>0:00</span>
-          <span>4:00</span>
-          <span>8:00</span>
-          <span>12:00</span>
-          <span>16:00</span>
-          <span>20:00</span>
-          <span>24:00</span>
+          {data && data.labels.length > 0
+            ? data.labels.map((label) => <span key={label}>{label}</span>)
+            : null}
         </div>
       </div>
 
@@ -95,7 +97,7 @@ const PredictionChart = () => {
             <div className={styles["detail-item"]}>
               <span className={styles["detail-label"]}>建议休眠时段</span>
               <span className={styles["detail-value"]}>
-                02:00-06:00, 14:00-16:00
+                {data ? data.strategy.sleep_periods : "数据待获取"}
               </span>
             </div>
             <div className={styles["detail-item"]}>
@@ -108,7 +110,11 @@ const PredictionChart = () => {
                     />
                     必须运行
                   </span>
-                  <span className={styles["status-value"]}>64 个（50%）</span>
+                  <span className={styles["status-value"]}>
+                    {data
+                      ? data.strategy.node_distribution.running
+                      : "0 个（0%）"}
+                  </span>
                 </div>
                 <div className={styles["status-item"]}>
                   <span className={styles["status-label"]}>
@@ -117,7 +123,11 @@ const PredictionChart = () => {
                     />
                     待休眠
                   </span>
-                  <span className={styles["status-value"]}>20 个（16%）</span>
+                  <span className={styles["status-value"]}>
+                    {data
+                      ? data.strategy.node_distribution.to_sleep
+                      : "0 个（0%）"}
+                  </span>
                 </div>
                 <div className={styles["status-item"]}>
                   <span className={styles["status-label"]}>
@@ -126,13 +136,19 @@ const PredictionChart = () => {
                     />
                     休眠
                   </span>
-                  <span className={styles["status-value"]}>44 个（34%）</span>
+                  <span className={styles["status-value"]}>
+                    {data
+                      ? data.strategy.node_distribution.sleeping
+                      : "0 个（0%）"}
+                  </span>
                 </div>
               </div>
             </div>
             <div className={styles["detail-item"]}>
               <span className={styles["detail-label"]}>提前唤醒时间</span>
-              <span className={styles["detail-value"]}>高峰前30分钟</span>
+              <span className={styles["detail-value"]}>
+                {data ? data.strategy.wake_ahead : "数据待获取"}
+              </span>
             </div>
           </div>
         </div>
@@ -153,16 +169,20 @@ const PredictionChart = () => {
                     styles["detail-value-highlight"]
                   }
                 >
-                  24.5%
+                  {data ? data.effects.saving_percent : "0%"}
                 </span>
               </div>
               <div className={styles["status-item"]}>
                 <span className={styles["status-label"]}>节省核时</span>
-                <span className={styles["status-value"]}>1,248 核时/天</span>
+                <span className={styles["status-value"]}>
+                  {data ? data.effects.saving_core_hours : "0 核时/天"}
+                </span>
               </div>
               <div className={styles["status-item"]}>
                 <span className={styles["status-label"]}>节省电力</span>
-                <span className={styles["status-value"]}>~312 kWh/天</span>
+                <span className={styles["status-value"]}>
+                  {data ? data.effects.saving_power : "~0 kWh/天"}
+                </span>
               </div>
             </div>
           </div>
@@ -177,16 +197,22 @@ const PredictionChart = () => {
             <div className={styles["status-list"]}>
               <div className={styles["status-item"]}>
                 <span className={styles["status-label"]}>预计任务延迟</span>
-                <span className={styles["status-value"]}>≤ 15分钟</span>
+                <span className={styles["status-value"]}>
+                  {data ? data.impact.delay : "数据待获取"}
+                </span>
               </div>
               <div className={styles["status-item"]}>
                 <span className={styles["status-label"]}>队列积压风险</span>
-                <span className={styles["status-value"]}>低</span>
+                <span className={styles["status-value"]}>
+                  {data ? data.impact.queue_risk : "数据待获取"}
+                </span>
               </div>
               <div className={styles["status-item"]}>
                 <span className={styles["status-label"]}>紧急响应能力</span>
                 <span className={styles["status-value"]}>
-                  30分钟内恢复全部节点
+                  {data
+                    ? data.impact.emergency_response
+                    : "数据待获取"}
                 </span>
               </div>
             </div>
@@ -257,7 +283,12 @@ const PredictionChart = () => {
   );
 };
 
-function drawChart(ctx: CanvasRenderingContext2D, displayMode: DisplayMode) {
+function drawChart(
+  ctx: CanvasRenderingContext2D,
+  displayMode: DisplayMode,
+  fullLoadData: number[],
+  energySavingData: number[],
+) {
   const { canvas } = ctx;
   const width = canvas.width;
   const height = canvas.height;
@@ -286,7 +317,8 @@ function drawChart(ctx: CanvasRenderingContext2D, displayMode: DisplayMode) {
 
   const maxValue = 100;
   const scaleY = (height - 50) / maxValue;
-  const stepX = (width - 60) / (labels.length - 1);
+  const pointsCount = fullLoadData.length;
+  const stepX = (width - 60) / Math.max(pointsCount - 1, 1);
 
   const drawDataLine = (data: number[], color: string) => {
     ctx.strokeStyle = color;

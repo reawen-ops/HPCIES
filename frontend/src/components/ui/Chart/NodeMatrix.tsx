@@ -1,30 +1,17 @@
+import { useEffect, useState } from "react";
+import { fetchNodeMatrix, type NodeMatrixResponse } from "../../../api";
 import styles from "./NodeMatrix.module.scss";
 
-interface NodeMatrixProps {
-  nodeCount: number;
-}
+const NodeMatrix = () => {
+  const [data, setData] = useState<NodeMatrixResponse | null>(null);
 
-const MAX_DISPLAY_NODES = 128;
-
-const NodeMatrix = ({ nodeCount }: NodeMatrixProps) => {
-  const displayCount = Math.min(Math.max(nodeCount, 0), MAX_DISPLAY_NODES);
-
-  const nodes = Array.from({ length: displayCount }, (_, index) => {
-    const id = index + 1;
-    const random = Math.random();
-    let statusClass = styles["node-running"];
-
-    if (random >= 0.5 && random < 0.7) {
-      statusClass = styles["node-sleeping"];
-    } else if (random >= 0.7) {
-      statusClass = styles["node-to-sleep"];
-    }
-
-    return {
-      id,
-      statusClass,
-    };
-  });
+  useEffect(() => {
+    fetchNodeMatrix()
+      .then(setData)
+      .catch(() => {
+        // 后端不可用时保持为空
+      });
+  }, []);
 
   return (
     <div className={styles["node-matrix"]}>
@@ -53,14 +40,23 @@ const NodeMatrix = ({ nodeCount }: NodeMatrixProps) => {
         </div>
       </div>
       <div className={styles["matrix-grid"]}>
-        {nodes.map((node) => (
-          <div
-            key={node.id}
-            className={`${styles.node} ${node.statusClass}`}
-          >
-            {node.id}
-          </div>
-        ))}
+        {data?.nodes.map((node) => {
+          let statusClass = styles["node-running"];
+          if (node.status === "sleeping") {
+            statusClass = styles["node-sleeping"];
+          } else if (node.status === "to_sleep") {
+            statusClass = styles["node-to-sleep"];
+          }
+
+          return (
+            <div
+              key={node.node_id}
+              className={`${styles.node} ${statusClass}`}
+            >
+              {node.node_id}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import {
 } from "react";
 import styles from "./Welcome.module.scss";
 import { FaCloudUploadAlt } from "react-icons/fa";
+import { updateClusterConfig } from "../../api";
 
 interface WelcomeProps {
   onComplete?: (config: { nodeCount: number; corePerNode: number }) => void;
@@ -30,10 +31,19 @@ const Welcome = ({ onComplete }: WelcomeProps) => {
     const parsedNodeCount = Number.parseInt(nodeCount, 10) || 0;
     const parsedCorePerNode = Number.parseInt(corePerNode, 10) || 0;
 
-    onComplete?.({
-      nodeCount: parsedNodeCount,
-      corePerNode: parsedCorePerNode,
-    });
+    updateClusterConfig({
+      node_count: parsedNodeCount,
+      core_per_node: parsedCorePerNode,
+    })
+      .catch(() => {
+        // 后端不可用时，仅关闭弹窗
+      })
+      .finally(() => {
+        onComplete?.({
+          nodeCount: parsedNodeCount,
+          corePerNode: parsedCorePerNode,
+        });
+      });
   };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
