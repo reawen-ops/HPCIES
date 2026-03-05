@@ -73,9 +73,8 @@ export async function fetchNodeMatrix(): Promise<NodeMatrixResponse> {
 }
 
 export async function fetchChatHistory(): Promise<ChatHistoryResponse> {
-  const response = await apiClient.get<ChatHistoryResponse>(
-    "/api/chat/history",
-  );
+  const response =
+    await apiClient.get<ChatHistoryResponse>("/api/chat/history");
   return response.data;
 }
 
