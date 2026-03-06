@@ -16,11 +16,16 @@ HPCIES 后端 API 应用
 
 from __future__ import annotations
 
+import email.utils
+import io
 import sqlite3
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Annotated, List, Literal
 
-from fastapi import Depends, FastAPI
+import pandas as pd
+import requests
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -97,6 +102,16 @@ def init_db() -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             author TEXT NOT NULL CHECK (author IN ('user', 'ai')),
             text TEXT NOT NULL
+        )
+        """
+    )
+
+    # 创建历史使用数据表，存储从 CSV 导入的时间序列
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS historical_usage (
+            ts TEXT PRIMARY KEY,
+            cpu_load REAL NOT NULL
         )
         """
     )
@@ -222,6 +237,38 @@ class ConfigRequest(BaseModel):
     """
     node_count: int  # 节点总数
     core_per_node: int  # 每节点核数
+
+
+class LoadPredictionRequest(BaseModel):
+    """
+    负载预测请求模型。
+
+    包含历史 24 小时的 CPU 核时使用量数据。
+    """
+    history_24h: List[float] = Field(..., description="前 24 小时的 CPU 核时使用量列表")
+    last_timestamp: str = Field(..., description="最后时间戳，格式为 YYYY-MM-DD HH:MM:SS")
+
+
+class LoadPredictionResponse(BaseModel):
+    """
+    负载预测响应模型。
+
+    包含预测的负载和建议的节点数。
+    """
+    predicted_load: float = Field(..., description="预测的负载")
+    suggested_nodes: int = Field(..., description="建议开启的节点数")
+
+
+class DatePredictionResponse(BaseModel):
+    """
+    按日预测响应模型。
+
+    返回某一天 24 小时的预测数据。
+    """
+    date: str
+    labels: List[str]
+    predicted_loads: List[float | None]
+    suggested_nodes: List[int | None]
 
 
 # 数据库连接依赖注入类型
@@ -456,3 +503,157 @@ def update_config(payload: ConfigRequest, conn: DbConn) -> dict:
 
     conn.commit()
     return {"success": True}
+
+
+@app.post("/api/upload-history")
+async def upload_history(
+    conn: DbConn,
+    file: UploadFile = File(...),
+) -> dict:
+    """
+    上传历史使用数据 CSV。
+
+    文件应包含列 `日期`, `小时`, `CPU核时使用量`。
+    数据会被解析并写入 `historical_usage` 表。
+    """
+    if not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="只支持 CSV 文件")
+    try:
+        content = await file.read()
+        df = pd.read_csv(io.BytesIO(content))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"解析 CSV 失败: {e}")
+
+    # 清洗数据
+    try:
+        df = df[df["日期"] != "日期"].copy()
+        df["小时"] = df["小时"].astype(str).str.zfill(2)
+        df["完整时间"] = pd.to_datetime(df["日期"] + " " + df["小时"] + ":00:00")
+        df["CPU核时使用量"] = df["CPU核时使用量"].astype(float)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"数据格式不正确: {e}")
+
+    cur = conn.cursor()
+    for _, row in df.iterrows():
+        ts = row["完整时间"].strftime("%Y-%m-%d %H:%M:%S")
+        cpu = float(row["CPU核时使用量"])
+        cur.execute(
+            "INSERT OR REPLACE INTO historical_usage (ts, cpu_load) VALUES (?, ?)",
+            (ts, cpu),
+        )
+    conn.commit()
+    return {"success": True}
+
+
+@app.get("/api/predict-date", response_model=DatePredictionResponse)
+def predict_date(date: str, conn: DbConn) -> DatePredictionResponse:
+    """
+    为指定日期生成 24 小时负载预测曲线。
+
+    会针对当天每个小时调用 LSTM API。
+    如果历史数据不足，则该时段返回 null。
+    """
+    try:
+        base_date = datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="日期格式应为 YYYY-MM-DD")
+
+    labels = [f"{h}:00" for h in range(24)]
+    predicted_loads: List[float | None] = []
+    suggested: List[int | None] = []
+
+    for hour in range(24):
+        target = base_date.replace(hour=hour)
+        start = target - timedelta(hours=24)
+        end = target - timedelta(hours=1)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT cpu_load FROM historical_usage WHERE ts >= ? AND ts <= ? ORDER BY ts",
+            (start.strftime("%Y-%m-%d %H:%M:%S"), end.strftime("%Y-%m-%d %H:%M:%S")),
+        )
+        rows = cur.fetchall()
+        if len(rows) != 24:
+            predicted_loads.append(None)
+            suggested.append(None)
+            continue
+        history = [float(r["cpu_load"]) for r in rows]
+        last_ts_str = start + timedelta(hours=23)
+        last_ts_str = last_ts_str.strftime("%Y-%m-%d %H:%M:%S")
+
+        # 调用 LSTM API
+        payload = {
+            "history_24h": history,
+            "last_timestamp": last_ts_str,
+            "predict_hours": 1,
+        }
+        headers = {
+            "Content-Type": "application/json",
+            "Date": email.utils.formatdate(usegmt=True),
+        }
+        try:
+            resp = requests.post(
+                "https://lstm-api-bchjuwvtgg.cn-hangzhou.fcapp.run",
+                json=payload,
+                headers=headers,
+                timeout=30,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            pred = data.get("predictions", [])[0]
+            predicted_loads.append(pred.get("predicted_load"))
+            suggested.append(pred.get("suggested_nodes"))
+        except Exception:
+            predicted_loads.append(None)
+            suggested.append(None)
+
+    return DatePredictionResponse(
+        date=date,
+        labels=labels,
+        predicted_loads=predicted_loads,
+        suggested_nodes=suggested,
+    )
+
+@app.post("/api/predict-load", response_model=LoadPredictionResponse)
+def predict_load(payload: LoadPredictionRequest) -> LoadPredictionResponse:
+    """
+    调用 LSTM API 进行负载预测。
+
+    接收历史 24 小时数据，调用外部 LSTM 模型 API，返回预测结果。
+
+    参数：
+        payload: 预测请求数据
+
+    返回值：
+        LoadPredictionResponse: 预测结果
+    """
+    url = "https://lstm-api-bchjuwvtgg.cn-hangzhou.fcapp.run"
+    
+    request_payload = {
+        "history_24h": payload.history_24h,
+        "last_timestamp": payload.last_timestamp,
+        "predict_hours": 1
+    }
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Date': email.utils.formatdate(usegmt=True)
+    }
+    
+    try:
+        response = requests.post(url, json=request_payload, headers=headers, timeout=30)
+        response.raise_for_status()
+        
+        data = response.json()
+        predictions = data.get('predictions', [])
+        if not predictions:
+            raise HTTPException(status_code=500, detail="No predictions returned from LSTM API")
+        
+        pred = predictions[0]
+        return LoadPredictionResponse(
+            predicted_load=pred['predicted_load'],
+            suggested_nodes=pred['suggested_nodes']
+        )
+    except requests.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Failed to call LSTM API: {str(e)}")
+    except (KeyError, IndexError) as e:
+        raise HTTPException(status_code=500, detail=f"Invalid response from LSTM API: {str(e)}")

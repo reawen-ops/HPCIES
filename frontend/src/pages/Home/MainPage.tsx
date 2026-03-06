@@ -7,6 +7,7 @@ import PredictionChart from "../../components/ui/Chart/PredictionChart";
 import NodeMatrix from "../../components/ui/Chart/NodeMatrix";
 import ChatContainer from "../../components/common/ChatContainer";
 import Welcome from "../../components/features/Welcome";
+import LoadPredictor from "../../components/features/LoadPredictor/LoadPredictor";
 import styles from "./MainPage.module.scss";
 
 const MainPage = () => {
@@ -25,6 +26,7 @@ const MainPage = () => {
           <ScrollPanel>
             <StatisticsInfo />
             <PredictionChart />
+            <LoadPredictor />
             <NodeMatrix />
             <ChatContainer />
           </ScrollPanel>
@@ -36,5 +38,3 @@ const MainPage = () => {
 };
 
 export default MainPage;
-
-

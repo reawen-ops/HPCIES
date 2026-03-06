@@ -182,6 +182,18 @@
   color: $text-primary;
 }
 
+/* date picker controls */
+.chart-controls {
+  margin-bottom: $spacing-md;
+}
+
+input[type="date"] {
+  padding: $spacing-sm $spacing-md;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  font-size: $font-size-sm;
+}
+
 .prediction-controls {
   @include card;
   @include flex-between;

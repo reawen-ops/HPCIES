@@ -1,12 +1,7 @@
-import {
-  useRef,
-  useState,
-  type ChangeEvent,
-  type FormEvent,
-} from "react";
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import styles from "./Welcome.module.scss";
 import { FaCloudUploadAlt } from "react-icons/fa";
-import { updateClusterConfig } from "../../api";
+import { updateClusterConfig, uploadHistory } from "../../api";
 
 interface WelcomeProps {
   onComplete?: (config: { nodeCount: number; corePerNode: number }) => void;
@@ -16,20 +11,29 @@ const Welcome = ({ onComplete }: WelcomeProps) => {
   const [nodeCount, setNodeCount] = useState<string>("");
   const [corePerNode, setCorePerNode] = useState<string>("");
   const [fileName, setFileName] = useState<string>("");
+  const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!fileName) {
+    if (!file || !fileName) {
       // 与原始页面保持一致：要求先上传文件
-      // eslint-disable-next-line no-alert
+
       alert("请上传HPC使用数据文件");
       return;
     }
 
     const parsedNodeCount = Number.parseInt(nodeCount, 10) || 0;
     const parsedCorePerNode = Number.parseInt(corePerNode, 10) || 0;
+
+    try {
+      // 1. 上传历史文件
+      await uploadHistory(file);
+    } catch (e) {
+      console.error("上传历史数据失败", e);
+      // 继续执行，即使失败也让用户进入应用
+    }
 
     updateClusterConfig({
       node_count: parsedNodeCount,
@@ -47,9 +51,13 @@ const Welcome = ({ onComplete }: WelcomeProps) => {
   };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
+    const f = event.target.files?.[0] || null;
+    if (f) {
+      setFileName(f.name);
+      setFile(f);
+    } else {
+      setFileName("");
+      setFile(null);
     }
   };
 

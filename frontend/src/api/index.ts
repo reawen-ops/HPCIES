@@ -94,3 +94,48 @@ export async function updateClusterConfig(payload: {
 }): Promise<void> {
   await apiClient.post("/api/config", payload);
 }
+
+export interface LoadPredictionRequest {
+  history_24h: number[];
+  last_timestamp: string;
+}
+
+export interface LoadPredictionResponse {
+  predicted_load: number;
+  suggested_nodes: number;
+}
+
+export async function predictLoad(
+  payload: LoadPredictionRequest,
+): Promise<LoadPredictionResponse> {
+  const response = await apiClient.post<LoadPredictionResponse>(
+    "/api/predict-load",
+    payload,
+  );
+  return response.data;
+}
+
+export interface DatePredictionResponse {
+  date: string;
+  labels: string[];
+  predicted_loads: (number | null)[];
+  suggested_nodes: (number | null)[];
+}
+
+export async function fetchPredictionForDate(
+  date: string,
+): Promise<DatePredictionResponse> {
+  const response = await apiClient.get<DatePredictionResponse>(
+    "/api/predict-date",
+    { params: { date } },
+  );
+  return response.data;
+}
+
+export async function uploadHistory(file: File): Promise<void> {
+  const form = new FormData();
+  form.append("file", file);
+  await apiClient.post("/api/upload-history", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+}
