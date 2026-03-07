@@ -47,6 +47,14 @@ const PredictionChart = ({
     setError(null);
     try {
       const resp = await fetchPredictionForDate(selectedDate, range);
+      
+      // 检查返回的数据是否有效
+      if (!resp.labels || resp.labels.length === 0) {
+        setError("该日期暂无预测数据，请确保已上传足够的历史数据");
+        setData(null);
+        return;
+      }
+      
       setData({
         labels: resp.labels ?? [],
         full_load: resp.utilization ?? [],
@@ -55,9 +63,19 @@ const PredictionChart = ({
         effects: resp.effects,
         impact: resp.impact,
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("获取预测失败，请稍后重试");
+      
+      // 更详细的错误提示
+      if (err.response?.status === 400) {
+        setError("历史数据不足或日期格式错误，请检查上传的数据");
+      } else if (err.response?.status === 503) {
+        setError("预测服务暂时不可用，请稍后重试");
+      } else if (err.response?.status === 401) {
+        setError("登录已过期，请重新登录");
+      } else {
+        setError("获取预测失败，请稍后重试");
+      }
       setData(null);
     } finally {
       setLoading(false);
@@ -136,7 +154,7 @@ const PredictionChart = ({
                     ref={canvasRef}
                     id="prediction-chart"
                     width={900}
-                    height={180}
+                    height={220}
                   />
                 ) : (
                   <span>预测数据待获取</span>
@@ -365,78 +383,189 @@ function drawChart(
   const width = canvas.width;
   const height = canvas.height;
 
+  // 清除画布
   ctx.clearRect(0, 0, width, height);
 
-  // 背景
-  ctx.fillStyle = "#f8fafc";
+  // 设置更好的渲染质量
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
+  // 绘制背景渐变
+  const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
+  bgGradient.addColorStop(0, '#f8fafc');
+  bgGradient.addColorStop(1, '#ffffff');
+  ctx.fillStyle = bgGradient;
   ctx.fillRect(0, 0, width, height);
 
-  // 网格
-  ctx.strokeStyle = "#e0e0e0";
+  // 绘制网格和刻度
+  ctx.strokeStyle = "#e5e7eb";
   ctx.lineWidth = 1;
+  ctx.font = "12px 'Segoe UI', sans-serif";
 
+  // 水平网格线（6条）
   for (let i = 0; i <= 5; i += 1) {
-    const y = 15 + i * 30;
+    const y = 20 + i * 32;
+    
+    // 绘制网格线
     ctx.beginPath();
-    ctx.moveTo(30, y);
-    ctx.lineTo(width - 30, y);
+    ctx.moveTo(50, y);
+    ctx.lineTo(width - 20, y);
     ctx.stroke();
 
-    ctx.fillStyle = "#546e7a";
-    ctx.font = "10px Arial";
-    ctx.fillText(`${(5 - i) * 20}%`, 8, y + 3);
+    // 绘制Y轴刻度
+    const value = (5 - i) * 20;
+    ctx.fillStyle = "#6b7280";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`${value}%`, 42, y);
   }
 
-  const maxValue = 100;
-  const scaleY = (height - 50) / maxValue;
-  const pointsCount = fullLoadData.length;
-  const stepX = (width - 60) / Math.max(pointsCount - 1, 1);
-
-  const drawDataLine = (data: number[], color: string) => {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+  // 绘制垂直参考线（每4小时一条）
+  ctx.strokeStyle = "#f3f4f6";
+  for (let i = 0; i <= 24; i += 4) {
+    const x = 50 + (i / 24) * (width - 70);
     ctx.beginPath();
+    ctx.moveTo(x, 20);
+    ctx.lineTo(x, height - 20);
+    ctx.stroke();
+  }
 
+  // 计算绘图区域
+  const chartLeft = 50;
+  const chartRight = width - 20;
+  const chartTop = 20;
+  const chartBottom = height - 20;
+  const chartWidth = chartRight - chartLeft;
+  const chartHeight = chartBottom - chartTop;
+
+  const maxValue = 100;
+  const scaleY = chartHeight / maxValue;
+  const pointsCount = fullLoadData.length;
+  const stepX = chartWidth / Math.max(pointsCount - 1, 1);
+
+  // 绘制数据线的函数
+  const drawDataLine = (data: number[], color: string, label: string) => {
+    if (data.length === 0) return;
+
+    // 绘制填充区域
+    const fillGradient = ctx.createLinearGradient(0, chartTop, 0, chartBottom);
+    fillGradient.addColorStop(0, `${color}30`);
+    fillGradient.addColorStop(1, `${color}08`);
+    
+    ctx.fillStyle = fillGradient;
+    ctx.beginPath();
+    ctx.moveTo(chartLeft, chartBottom);
+    
     data.forEach((value, index) => {
-      const x = 30 + index * stepX;
-      const y = height - 30 - value * scaleY;
+      const x = chartLeft + index * stepX;
+      const y = chartBottom - value * scaleY;
+      ctx.lineTo(x, y);
+    });
+    
+    ctx.lineTo(chartLeft + (data.length - 1) * stepX, chartBottom);
+    ctx.closePath();
+    ctx.fill();
+
+    // 绘制主线条（更粗、更平滑）
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.shadowColor = `${color}40`;
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 2;
+    
+    ctx.beginPath();
+    data.forEach((value, index) => {
+      const x = chartLeft + index * stepX;
+      const y = chartBottom - value * scaleY;
 
       if (index === 0) {
         ctx.moveTo(x, y);
       } else {
         ctx.lineTo(x, y);
       }
+    });
+    ctx.stroke();
+    
+    // 重置阴影
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
 
-      // 数据点
+    // 绘制数据点（更大、更明显）
+    data.forEach((value, index) => {
+      const x = chartLeft + index * stepX;
+      const y = chartBottom - value * scaleY;
+
+      // 外圈（白色边框）
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 内圈（颜色填充）
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.arc(x, y, 3.5, 0, Math.PI * 2);
       ctx.fill();
     });
 
-    ctx.stroke();
+    // 绘制最高点和最低点标注
+    const maxVal = Math.max(...data);
+    const minVal = Math.min(...data);
+    const maxIdx = data.indexOf(maxVal);
+    const minIdx = data.indexOf(minVal);
 
-    // 填充区域
-    ctx.fillStyle = `${color}20`;
-    ctx.beginPath();
-    ctx.moveTo(30, height - 30);
-    data.forEach((value, index) => {
-      const x = 30 + index * stepX;
-      const y = height - 30 - value * scaleY;
-      ctx.lineTo(x, y);
-    });
-    ctx.lineTo(30 + (data.length - 1) * stepX, height - 30);
-    ctx.closePath();
-    ctx.fill();
+    // 标注最高点
+    if (maxIdx >= 0) {
+      const x = chartLeft + maxIdx * stepX;
+      const y = chartBottom - maxVal * scaleY;
+      
+      ctx.fillStyle = color;
+      ctx.font = "bold 11px 'Segoe UI', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(`${maxVal.toFixed(1)}%`, x, y - 10);
+    }
+
+    // 标注最低点
+    if (minIdx >= 0 && minIdx !== maxIdx) {
+      const x = chartLeft + minIdx * stepX;
+      const y = chartBottom - minVal * scaleY;
+      
+      ctx.fillStyle = color;
+      ctx.font = "bold 11px 'Segoe UI', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillText(`${minVal.toFixed(1)}%`, x, y + 10);
+    }
   };
 
+  // 根据显示模式绘制曲线
   if (displayMode === "对比模式" || displayMode === "仅全开") {
-    drawDataLine(fullLoadData, "#4caf50");
+    drawDataLine(fullLoadData, "#10b981", "全开模式");
   }
 
   if (displayMode === "对比模式" || displayMode === "仅节能") {
-    drawDataLine(energySavingData, "#1e88e5");
+    drawDataLine(energySavingData, "#3b82f6", "节能模式");
   }
+
+  // 绘制坐标轴
+  ctx.strokeStyle = "#9ca3af";
+  ctx.lineWidth = 2;
+  
+  // Y轴
+  ctx.beginPath();
+  ctx.moveTo(chartLeft, chartTop);
+  ctx.lineTo(chartLeft, chartBottom);
+  ctx.stroke();
+  
+  // X轴
+  ctx.beginPath();
+  ctx.moveTo(chartLeft, chartBottom);
+  ctx.lineTo(chartRight, chartBottom);
+  ctx.stroke();
 }
 
 export default PredictionChart;

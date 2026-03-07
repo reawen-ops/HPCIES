@@ -7,13 +7,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.db import init_db
+from app.core.config import settings
 from app.api.routes import router as api_router
 
 
 app = FastAPI(
-    title="HPCIES Backend",
+    title=settings.app_title,
     description="HPC 智能节能调度系统后端 API（FastAPI + SQLite）",
-    version="0.1.0",
+    version=settings.app_version,
 )
 
 # register all routes defined in the package
@@ -22,7 +23,7 @@ app.include_router(api_router)
 # 全局中间件
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins if isinstance(settings.cors_origins, list) else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

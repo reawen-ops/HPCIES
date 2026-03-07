@@ -9,7 +9,14 @@
 
 .chart-container {
   @include card;
-  padding: $spacing-xl;
+  padding: $spacing-xxl;
+  background: linear-gradient(to bottom, #ffffff, #f8fafc);
+  border: 1px solid #e5e7eb;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(59, 130, 246, 0.12);
+  }
 }
 
 .chart-header {
@@ -18,14 +25,20 @@
 }
 
 .chart-title {
-  font-size: $font-size-lg;
-  font-weight: $font-weight-medium;
+  font-size: $font-size-xl;
+  font-weight: $font-weight-bold;
   color: $primary-dark;
   @include flex-center;
-  gap: $spacing-sm;
+  gap: $spacing-md;
+  background: linear-gradient(135deg, #1e40af, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 
   svg {
-    font-size: $font-size-lg;
+    font-size: $font-size-xl;
+    color: $primary-color;
+    -webkit-text-fill-color: $primary-color;
   }
 }
 
@@ -36,36 +49,64 @@
 
 .legend-item {
   @include flex-center;
-  gap: $spacing-md;
+  gap: $spacing-sm;
   font-size: $font-size-sm;
-  color: $text-secondary;
+  font-weight: $font-weight-medium;
+  color: $text-primary;
+  padding: $spacing-sm $spacing-md;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: $radius-lg;
+  border: 1px solid #e5e7eb;
+  transition: all $transition-base;
+  
+  &:hover {
+    background-color: rgba(255, 255, 255, 1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+  }
 }
 
 .legend-color {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: $radius-sm;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
   &.color-open {
-    background-color: $success-color;
+    background: linear-gradient(135deg, #10b981, #059669);
   }
 
   &.color-saving {
-    background-color: $primary-color;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
   }
 }
 
 .chart-content {
-  height: 180px;
+  height: 220px;
   @include flex-center;
+  background: linear-gradient(to bottom, #f8fafc, #ffffff);
+  border-radius: $radius-lg;
+  padding: $spacing-md;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .time-axis {
   display: flex;
   justify-content: space-between;
   color: $text-secondary;
-  font-size: $font-size-sm;
-  padding: $spacing-md $spacing-lg 0;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+  padding: $spacing-md $spacing-xxl 0;
+  
+  span {
+    min-width: 40px;
+    text-align: center;
+    
+    &:nth-child(4n+1) {
+      color: $text-primary;
+      font-weight: $font-weight-bold;
+    }
+  }
 }
 
 .prediction-details {
@@ -184,14 +225,32 @@
 
 /* date picker controls */
 .chart-controls {
-  margin-bottom: $spacing-md;
+  margin-bottom: $spacing-lg;
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
 }
 
 input[type="date"] {
-  padding: $spacing-sm $spacing-md;
-  border: 1px solid $border-color;
-  border-radius: $radius-sm;
-  font-size: $font-size-sm;
+  padding: $spacing-md $spacing-lg;
+  border: 2px solid $border-color;
+  border-radius: $radius-lg;
+  font-size: $font-size-base;
+  font-weight: $font-weight-medium;
+  color: $text-primary;
+  background-color: white;
+  transition: all $transition-base;
+  cursor: pointer;
+  
+  &:hover {
+    border-color: $primary-light;
+  }
+  
+  &:focus {
+    outline: none;
+    border-color: $primary-color;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
 }
 
 .error-text {

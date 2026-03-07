@@ -4,7 +4,11 @@ import { FaCloudUploadAlt } from "react-icons/fa";
 import { uploadHistory } from "../../api";
 
 interface WelcomeProps {
-  onComplete?: (config: { nodeCount: number; corePerNode: number }) => void;
+  onComplete?: (config: {
+    nodeCount: number;
+    corePerNode: number;
+    suggestedDate?: string;
+  }) => void;
 }
 
 const Welcome = ({ onComplete }: WelcomeProps) => {
@@ -19,8 +23,6 @@ const Welcome = ({ onComplete }: WelcomeProps) => {
     setError(null);
 
     if (!file || !fileName) {
-      // 与原始页面保持一致：要求先上传文件
-
       setError("请上传HPC使用数据文件");
       return;
     }
@@ -28,14 +30,25 @@ const Welcome = ({ onComplete }: WelcomeProps) => {
     try {
       setSubmitting(true);
       // 上传历史文件（后端会自动基于 CSV 推断节点/核数等配置）
-      await uploadHistory(file);
+      const result = await uploadHistory(file);
+      
+      // 上传成功后通知父组件，包含建议的预测日期
       onComplete?.({
-        nodeCount: 0,
-        corePerNode: 0,
+        nodeCount: result.estimated_nodes || 0,
+        corePerNode: result.core_per_node || 0,
+        suggestedDate: result.suggested_date,
       });
-    } catch (e) {
+    } catch (e: any) {
       console.error("提交配置失败", e);
-      setError("提交失败：请确认已登录且后端服务可用");
+      
+      // 更详细的错误提示
+      if (e.response?.status === 400) {
+        setError("文件格式错误，请确保 CSV 包含正确的列（日期、小时、CPU核时使用量）");
+      } else if (e.response?.status === 401) {
+        setError("登录已过期，请重新登录");
+      } else {
+        setError("提交失败：请确认已登录且后端服务可用");
+      }
     } finally {
       setSubmitting(false);
     }

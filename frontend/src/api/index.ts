@@ -229,10 +229,21 @@ export async function fetchPredictionForDate(
   return response.data;
 }
 
-export async function uploadHistory(file: File): Promise<void> {
+export async function uploadHistory(file: File): Promise<{
+  success: boolean;
+  rows_imported: number;
+  estimated_nodes: number;
+  core_per_node: number;
+  suggested_date?: string;
+  data_range?: {
+    start: string;
+    end: string;
+  };
+}> {
   const form = new FormData();
   form.append("file", file);
-  await apiClient.post("/api/upload-history", form, {
+  const response = await apiClient.post("/api/upload-history", form, {
     headers: { "Content-Type": "multipart/form-data" },
   });
+  return response.data;
 }

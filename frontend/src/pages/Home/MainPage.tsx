@@ -28,10 +28,23 @@ const MainPage = () => {
     profile.node_count == null ||
     profile.core_per_node == null;
 
-  const handleCompleteConfig = () => {
+  const handleCompleteConfig = async (config: {
+    nodeCount: number;
+    corePerNode: number;
+    suggestedDate?: string;
+  }) => {
     // 配置完成后刷新一次，让各组件用到最新配置/数据
-    // 不再手动设置 showWelcome，依赖 profile 更新后重新计算 needsSetup
-    refreshMe().catch(() => {});
+    await refreshMe().catch(() => {});
+    
+    // 如果后端返回了建议的预测日期，使用它；否则选择昨天
+    if (config.suggestedDate) {
+      setSelectedDate(config.suggestedDate);
+    } else {
+      const today = new Date();
+      const targetDate = new Date(today);
+      targetDate.setDate(today.getDate() - 1);
+      setSelectedDate(targetDate.toISOString().slice(0, 10));
+    }
   };
 
   return (
