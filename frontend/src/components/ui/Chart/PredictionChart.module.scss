@@ -194,6 +194,12 @@ input[type="date"] {
   font-size: $font-size-sm;
 }
 
+.error-text {
+  color: $danger-color;
+  font-size: $font-size-sm;
+  margin-bottom: $spacing-sm;
+}
+
 .prediction-controls {
   @include card;
   @include flex-between;

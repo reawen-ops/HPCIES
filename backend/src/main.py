@@ -1,11 +1,6 @@
-"""Application entrypoint.
-
-This module now merely creates the FastAPI instance, applies middleware, and
-registers routers that live in the `app` package.  All business logic,
-models, database helpers, etc. have been moved into a proper package structure
-(`app/core`, `app/schemas`, `app/crud`, `app/api/routes`, `app/utils`).
 """
-
+FastAPI 启动文件
+"""
 from __future__ import annotations
 
 from fastapi import FastAPI

@@ -70,7 +70,8 @@ export interface HistoryTreeResponse {
 }
 
 export async function fetchHistoryTree(): Promise<HistoryTreeResponse> {
-  const response = await apiClient.get<HistoryTreeResponse>("/api/history/tree");
+  const response =
+    await apiClient.get<HistoryTreeResponse>("/api/history/tree");
   return response.data;
 }
 
@@ -219,10 +220,11 @@ export interface DatePredictionResponse {
 
 export async function fetchPredictionForDate(
   date: string,
+  range?: string, // e.g. "今日" / "未来3天" / "未来7天"
 ): Promise<DatePredictionResponse> {
   const response = await apiClient.get<DatePredictionResponse>(
     "/api/predict-date",
-    { params: { date } },
+    { params: { date, range } },
   );
   return response.data;
 }
