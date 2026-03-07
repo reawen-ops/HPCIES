@@ -10,14 +10,16 @@ import styles from "./PredictionChart.module.scss";
 type RangeOption = "今日" | "未来3天" | "未来7天";
 type DisplayMode = "对比模式" | "仅全开" | "仅节能";
 
-const PredictionChart = () => {
+interface PredictionChartProps {
+  selectedDate: string;
+  onChangeDate: (date: string) => void;
+}
+
+const PredictionChart = ({ selectedDate, onChangeDate }: PredictionChartProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [range, setRange] = useState<RangeOption>("今日");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("对比模式");
   const [data, setData] = useState<PredictionResponse | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().slice(0, 10),
-  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -32,35 +34,16 @@ const PredictionChart = () => {
   }, [displayMode, range, data]);
 
   useEffect(() => {
-    // 当选择日期变化时重新获取预测
+    // 当选择日期变化时重新获取预测（所有展示数据都来自后端 + 大模型计算结果）
     fetchPredictionForDate(selectedDate)
       .then((resp: DatePredictionResponse) => {
-        const full = resp.predicted_loads.map((v) => (v === null ? 0 : v));
-        const saving = resp.predicted_loads.map(() => 0);
-        // 保留原有硬编码策略信息，或根据 resp.date 动态生成
         setData({
           labels: resp.labels,
-          full_load: full,
-          energy_saving: saving,
-          strategy: {
-            sleep_periods: "02:00-06:00, 14:00-16:00",
-            node_distribution: {
-              running: "64 个（50%）",
-              to_sleep: "20 个（16%）",
-              sleeping: "44 个（34%）",
-            },
-            wake_ahead: "高峰前30分钟",
-          },
-          effects: {
-            saving_percent: "24.5%",
-            saving_core_hours: "1,248 核时/天",
-            saving_power: "~312 kWh/天",
-          },
-          impact: {
-            delay: "≤ 15分钟",
-            queue_risk: "低",
-            emergency_response: "30分钟内恢复全部节点",
-          },
+          full_load: resp.utilization,
+          energy_saving: resp.energy_saving,
+          strategy: resp.strategy,
+          effects: resp.effects,
+          impact: resp.impact,
         });
       })
       .catch(() => {
@@ -111,7 +94,7 @@ const PredictionChart = () => {
             aria-label="选择预测日期"
             type="date"
             value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+            onChange={(e) => onChangeDate(e.target.value)}
           />
         </div>
         <div className={styles["chart-content"]}>

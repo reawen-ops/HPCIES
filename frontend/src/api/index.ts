@@ -1,5 +1,79 @@
 import { apiClient } from "./client";
 
+// ============ Auth ============
+export interface AuthUser {
+  id: number;
+  username: string;
+}
+
+export interface AuthSessionResponse {
+  token: string;
+  expires_at: string; // "YYYY-MM-DD HH:MM:SS" (UTC)
+  user: AuthUser;
+}
+
+export interface MeResponse {
+  user: AuthUser;
+  profile: {
+    node_count: number | null;
+    core_per_node: number | null;
+    has_history: number; // 0/1
+    updated_at?: string;
+  };
+}
+
+export async function authRegister(payload: {
+  username: string;
+  password: string;
+}): Promise<void> {
+  await apiClient.post("/api/auth/register", payload);
+}
+
+export async function authLogin(payload: {
+  username: string;
+  password: string;
+}): Promise<AuthSessionResponse> {
+  const response = await apiClient.post<AuthSessionResponse>(
+    "/api/auth/login",
+    payload,
+  );
+  return response.data;
+}
+
+export async function authLogout(): Promise<void> {
+  await apiClient.post("/api/auth/logout");
+}
+
+export async function authMe(): Promise<MeResponse> {
+  const response = await apiClient.get<MeResponse>("/api/auth/me");
+  return response.data;
+}
+
+// ============ 历史数据树 ============
+
+export interface HistoryDay {
+  date: string;
+}
+
+export interface HistoryMonth {
+  month: number;
+  days: HistoryDay[];
+}
+
+export interface HistoryYear {
+  year: number;
+  months: HistoryMonth[];
+}
+
+export interface HistoryTreeResponse {
+  years: HistoryYear[];
+}
+
+export async function fetchHistoryTree(): Promise<HistoryTreeResponse> {
+  const response = await apiClient.get<HistoryTreeResponse>("/api/history/tree");
+  return response.data;
+}
+
 export interface ClusterStats {
   // 下列三个字段未来由大模型提供，目前可能为 null
   today_saving_percent: number | null;
@@ -120,6 +194,27 @@ export interface DatePredictionResponse {
   labels: string[];
   predicted_loads: (number | null)[];
   suggested_nodes: (number | null)[];
+  utilization: number[];
+  energy_saving: number[];
+  strategy: {
+    sleep_periods: string;
+    node_distribution: {
+      running: string;
+      to_sleep: string;
+      sleeping: string;
+    };
+    wake_ahead: string;
+  };
+  effects: {
+    saving_percent: string;
+    saving_core_hours: string;
+    saving_power: string;
+  };
+  impact: {
+    delay: string;
+    queue_risk: string;
+    emergency_response: string;
+  };
 }
 
 export async function fetchPredictionForDate(

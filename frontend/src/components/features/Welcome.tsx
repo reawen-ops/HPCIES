@@ -1,53 +1,44 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import styles from "./Welcome.module.scss";
 import { FaCloudUploadAlt } from "react-icons/fa";
-import { updateClusterConfig, uploadHistory } from "../../api";
+import { uploadHistory } from "../../api";
 
 interface WelcomeProps {
   onComplete?: (config: { nodeCount: number; corePerNode: number }) => void;
 }
 
 const Welcome = ({ onComplete }: WelcomeProps) => {
-  const [nodeCount, setNodeCount] = useState<string>("");
-  const [corePerNode, setCorePerNode] = useState<string>("");
   const [fileName, setFileName] = useState<string>("");
   const [file, setFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setError(null);
 
     if (!file || !fileName) {
       // 与原始页面保持一致：要求先上传文件
 
-      alert("请上传HPC使用数据文件");
+      setError("请上传HPC使用数据文件");
       return;
     }
 
-    const parsedNodeCount = Number.parseInt(nodeCount, 10) || 0;
-    const parsedCorePerNode = Number.parseInt(corePerNode, 10) || 0;
-
     try {
-      // 1. 上传历史文件
+      setSubmitting(true);
+      // 上传历史文件（后端会自动基于 CSV 推断节点/核数等配置）
       await uploadHistory(file);
-    } catch (e) {
-      console.error("上传历史数据失败", e);
-      // 继续执行，即使失败也让用户进入应用
-    }
-
-    updateClusterConfig({
-      node_count: parsedNodeCount,
-      core_per_node: parsedCorePerNode,
-    })
-      .catch(() => {
-        // 后端不可用时，仅关闭弹窗
-      })
-      .finally(() => {
-        onComplete?.({
-          nodeCount: parsedNodeCount,
-          corePerNode: parsedCorePerNode,
-        });
+      onComplete?.({
+        nodeCount: 0,
+        corePerNode: 0,
       });
+    } catch (e) {
+      console.error("提交配置失败", e);
+      setError("提交失败：请确认已登录且后端服务可用");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -70,7 +61,7 @@ const Welcome = ({ onComplete }: WelcomeProps) => {
       <div className={styles["welcome-content"]}>
         <h2 className={styles["welcome-title"]}>欢迎使用HPC能源管家</h2>
         <p className={styles["welcome-text"]}>
-          这是您第一次使用本系统。为了为您提供准确的预测和节能策略，请先配置您的HPC集群基本信息并上传历史使用数据。
+          这是您第一次使用本系统。为了为您提供准确的预测和节能策略，请先上传您的HPC历史使用数据（CSV 文件），系统将自动推断集群规模并为您生成预测结果。
         </p>
 
         <form
@@ -78,40 +69,6 @@ const Welcome = ({ onComplete }: WelcomeProps) => {
           className={styles["config-form"]}
           onSubmit={handleSubmit}
         >
-          <div className={styles["config-row"]}>
-            <div className={styles["config-group"]}>
-              <label className={styles["form-label"]} htmlFor="node-count">
-                节点数
-              </label>
-              <input
-                type="number"
-                id="node-count"
-                className={styles["form-control"]}
-                placeholder="例如：128"
-                required
-                min={1}
-                value={nodeCount}
-                onChange={(e) => setNodeCount(e.target.value)}
-              />
-            </div>
-
-            <div className={styles["config-group"]}>
-              <label className={styles["form-label"]} htmlFor="core-per-node">
-                每节点核数
-              </label>
-              <input
-                type="number"
-                id="core-per-node"
-                className={styles["form-control"]}
-                placeholder="例如：32"
-                required
-                min={1}
-                value={corePerNode}
-                onChange={(e) => setCorePerNode(e.target.value)}
-              />
-            </div>
-          </div>
-
           <div className={styles["form-group"]}>
             <label className={styles["form-label"]}>
               上传HPC使用数据 (.csv文件)
@@ -144,11 +101,15 @@ const Welcome = ({ onComplete }: WelcomeProps) => {
           <div className={styles["config-btn"]}>
             <button
               type="submit"
+              disabled={submitting}
               className={styles["btn"] + " " + styles["btn-primary"]}
             >
-              提交配置并开始分析
+              {submitting ? "提交中..." : "提交配置并开始分析"}
             </button>
           </div>
+          {error ? (
+            <div style={{ color: "#d32f2f", marginTop: 12 }}>{error}</div>
+          ) : null}
         </form>
       </div>
     </div>

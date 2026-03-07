@@ -2,12 +2,40 @@ import styles from "./RegisterForm.module.scss";
 import { IoLogoWechat } from "react-icons/io5";
 import { FaQq } from "react-icons/fa";
 import { FaAlipay } from "react-icons/fa";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useState, type FormEvent } from "react";
+import { useAuth } from "../../auth/AuthProvider";
 
 const RegisterForm = () => {
+  const navigate = useNavigate();
+  const { register } = useAuth();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (password !== confirmPassword) {
+      setError("两次输入的密码不一致");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await register(username, password);
+      navigate("/login", { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "注册失败");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className={styles.card}>
-      <form id="register-form">
+      <form id="register-form" onSubmit={onSubmit}>
         <div className={styles["form-group"]}>
           <label className={styles["form-label"]} htmlFor="username">
             用户名
@@ -18,6 +46,8 @@ const RegisterForm = () => {
             className={styles["form-control"]}
             placeholder="请输入用户名"
             required
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
           />
         </div>
 
@@ -56,6 +86,8 @@ const RegisterForm = () => {
             className={styles["form-control"]}
             placeholder="请输入密码"
             required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
           />
         </div>
 
@@ -69,6 +101,8 @@ const RegisterForm = () => {
             className={styles["form-control"]}
             placeholder="请再次输入密码"
             required
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
           />
         </div>
 
@@ -97,12 +131,19 @@ const RegisterForm = () => {
 
         <button
           type="submit"
+          disabled={submitting}
           className={
             styles.btn + " " + styles["btn-primary"] + " " + styles["btn-block"]
           }
         >
-          注册
+          {submitting ? "注册中..." : "注册"}
         </button>
+
+        {error ? (
+          <div className={styles.mt20} style={{ color: "#d32f2f" }}>
+            {error}
+          </div>
+        ) : null}
 
         <div className={styles.divider + " " + styles.mt20}>
           <span>或使用以下方式注册</span>

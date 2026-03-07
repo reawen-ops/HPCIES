@@ -2,12 +2,35 @@ import styles from "./LoginForm.module.scss";
 import { IoLogoWechat } from "react-icons/io5";
 import { FaQq } from "react-icons/fa";
 import { FaAlipay } from "react-icons/fa";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useState, type FormEvent } from "react";
+import { useAuth } from "../../auth/AuthProvider";
 
 const LoginForm = () => {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      await login(username, password);
+      navigate("/", { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "登录失败");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className={styles.card}>
-      <form id="login-form">
+      <form id="login-form" onSubmit={onSubmit}>
         <div className={styles["form-group"]}>
           <label className={styles["form-label"]} htmlFor="login-username">
             用户名
@@ -18,6 +41,8 @@ const LoginForm = () => {
             className={styles["form-control"]}
             placeholder="请输入用户名"
             required
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
           />
         </div>
 
@@ -31,6 +56,8 @@ const LoginForm = () => {
             className={styles["form-control"]}
             placeholder="请输入密码"
             required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
           />
         </div>
 
@@ -44,8 +71,15 @@ const LoginForm = () => {
           </a>
         </div>
 
+        {error ? (
+          <div className={styles["mt-20"]} style={{ color: "#d32f2f" }}>
+            {error}
+          </div>
+        ) : null}
+
         <button
           type="submit"
+          disabled={submitting}
           className={
             styles["btn"] +
             " " +
@@ -54,7 +88,7 @@ const LoginForm = () => {
             styles["btn-block"]
           }
         >
-          登录
+          {submitting ? "登录中..." : "登录"}
         </button>
 
         <div className={styles.divider + " " + styles["mt-20"]}>
