@@ -10,11 +10,13 @@ interface OpenState {
 
 interface SidebarProps {
   onSelectDate?: (date: string) => void;
+  refreshTrigger?: number; // 用于触发刷新的计数器
 }
 
-const Sidebar = ({ onSelectDate }: SidebarProps) => {
+const Sidebar = ({ onSelectDate, refreshTrigger }: SidebarProps) => {
   const [tree, setTree] = useState<HistoryTreeResponse | null>(null);
   const [open, setOpen] = useState<OpenState>({});
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   useEffect(() => {
     fetchHistoryTree()
@@ -22,7 +24,7 @@ const Sidebar = ({ onSelectDate }: SidebarProps) => {
       .catch(() => {
         setTree(null);
       });
-  }, []);
+  }, [refreshTrigger]); // 当 refreshTrigger 变化时重新获取树形结构
 
   const toggleKey = (key: string) => {
     setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -70,6 +72,7 @@ const Sidebar = ({ onSelectDate }: SidebarProps) => {
                       <ul className={styles["tree-children"]}>
                         {month.days.map((day) => {
                           const dayLabel = day.date.split("-")[2];
+                          const isSelected = selectedDate === day.date;
                           return (
                             <li
                               key={day.date}
@@ -77,8 +80,11 @@ const Sidebar = ({ onSelectDate }: SidebarProps) => {
                             >
                               <button
                                 type="button"
-                                className={styles["tree-leaf-button"]}
-                                onClick={() => onSelectDate?.(day.date)}
+                                className={`${styles["tree-leaf-button"]} ${isSelected ? styles["selected"] : ""}`}
+                                onClick={() => {
+                                  setSelectedDate(day.date);
+                                  onSelectDate?.(day.date);
+                                }}
                               >
                                 {dayLabel}日
                               </button>

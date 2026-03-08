@@ -113,20 +113,59 @@ def post_chat_message(
     conn: DbConn = Depends(get_connection),
     user: dict = Depends(get_current_user),
 ) -> ChatHistoryResponse:
+    from app.services.deepseek_service import (
+        chat_with_deepseek,
+        get_hpc_system_prompt,
+        format_chat_history_for_api,
+        DeepSeekError,
+    )
+    
     cur = conn.cursor()
-    # persist user message
+    
+    # 保存用户消息
     cur.execute(
         "INSERT INTO chat_messages (user_id, author, text) VALUES (?, 'user', ?)",
         (user["id"], payload.text),
     )
-    # here we would normally contact AI model, for now echo
-    ai_text = f"Echo: {payload.text}"
+    conn.commit()
+    
+    # 获取用户的聊天历史（用于上下文）
+    cur.execute(
+        "SELECT id, author, text FROM chat_messages WHERE user_id = ? ORDER BY id",
+        (user["id"],),
+    )
+    history_rows = cur.fetchall()
+    history_messages = [
+        {"id": int(r["id"]), "author": r["author"], "text": r["text"]} 
+        for r in history_rows
+    ]
+    
+    # 格式化历史消息为 API 格式
+    api_messages = format_chat_history_for_api(history_messages, max_history=10)
+    
+    # 调用 DeepSeek API
+    try:
+        ai_response = chat_with_deepseek(
+            messages=api_messages,
+            system_prompt=get_hpc_system_prompt(),
+            temperature=0.7,
+            max_tokens=2000,
+        )
+    except DeepSeekError as e:
+        # 如果 API 调用失败，返回错误提示
+        ai_response = f"抱歉，AI 服务暂时不可用：{str(e)}"
+    except Exception as e:
+        # 捕获其他异常
+        ai_response = f"处理您的请求时发生错误，请稍后重试。"
+    
+    # 保存 AI 回复
     cur.execute(
         "INSERT INTO chat_messages (user_id, author, text) VALUES (?, 'ai', ?)",
-        (user["id"], ai_text),
+        (user["id"], ai_response),
     )
     conn.commit()
-    # return updated history
+    
+    # 返回更新后的聊天历史
     return chat_history(conn, user)
 
 
@@ -412,6 +451,73 @@ def predict_load(
 
 
 @router.get("/history/tree", response_model=HistoryTreeResponse)
-def history_tree(conn: DbConn = Depends(get_connection)) -> HistoryTreeResponse:
-    # simple stub returning empty structure
-    return HistoryTreeResponse(years=[])
+def history_tree(
+    conn: DbConn = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+) -> HistoryTreeResponse:
+    """
+    获取用户历史数据的年月日树形结构。
+    
+    返回格式：
+    {
+        "years": [
+            {
+                "year": 2025,
+                "months": [
+                    {
+                        "month": 4,
+                        "days": [
+                            {"date": "2025-04-01"},
+                            {"date": "2025-04-02"}
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+    """
+    from collections import defaultdict
+    
+    cur = conn.cursor()
+    
+    # 查询用户所有历史数据的日期（去重）
+    cur.execute(
+        """
+        SELECT DISTINCT DATE(ts) as date_only
+        FROM historical_usage
+        WHERE user_id = ?
+        ORDER BY date_only
+        """,
+        (user["id"],),
+    )
+    
+    rows = cur.fetchall()
+    
+    if not rows:
+        return HistoryTreeResponse(years=[])
+    
+    # 构建树形结构
+    # year -> month -> [dates]
+    tree_dict = defaultdict(lambda: defaultdict(list))
+    
+    for row in rows:
+        date_str = row["date_only"]  # 格式: "2025-04-01"
+        date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+        
+        year = date_obj.year
+        month = date_obj.month
+        
+        tree_dict[year][month].append(date_str)
+    
+    # 转换为响应格式
+    from app.schemas import HistoryYear, HistoryMonth, HistoryDay
+    
+    years = []
+    for year in sorted(tree_dict.keys()):
+        months = []
+        for month in sorted(tree_dict[year].keys()):
+            days = [HistoryDay(date=date) for date in sorted(tree_dict[year][month])]
+            months.append(HistoryMonth(month=month, days=days))
+        years.append(HistoryYear(year=year, months=months))
+    
+    return HistoryTreeResponse(years=years)

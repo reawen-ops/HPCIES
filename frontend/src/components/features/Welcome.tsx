@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import styles from "./Welcome.module.scss";
 import { FaCloudUploadAlt } from "react-icons/fa";
-import { uploadHistory } from "../../api";
+import { uploadHistory, updateClusterConfig } from "../../api";
 
 interface WelcomeProps {
   onComplete?: (config: {
@@ -14,6 +14,8 @@ interface WelcomeProps {
 const Welcome = ({ onComplete }: WelcomeProps) => {
   const [fileName, setFileName] = useState<string>("");
   const [file, setFile] = useState<File | null>(null);
+  const [nodeCount, setNodeCount] = useState<string>("");
+  const [corePerNode, setCorePerNode] = useState<string>("32");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -22,20 +24,38 @@ const Welcome = ({ onComplete }: WelcomeProps) => {
     event.preventDefault();
     setError(null);
 
+    // 验证表单
     if (!file || !fileName) {
       setError("请上传HPC使用数据文件");
       return;
     }
 
+    if (!nodeCount || parseInt(nodeCount) <= 0) {
+      setError("请输入有效的总节点数（大于0）");
+      return;
+    }
+
+    if (!corePerNode || parseInt(corePerNode) <= 0) {
+      setError("请输入有效的每节点核心数（大于0）");
+      return;
+    }
+
     try {
       setSubmitting(true);
-      // 上传历史文件（后端会自动基于 CSV 推断节点/核数等配置）
+      
+      // 先上传历史文件
       const result = await uploadHistory(file);
       
-      // 上传成功后通知父组件，包含建议的预测日期
+      // 然后更新用户配置（使用用户输入的值）
+      await updateClusterConfig({
+        node_count: parseInt(nodeCount),
+        core_per_node: parseInt(corePerNode),
+      });
+      
+      // 上传成功后通知父组件
       onComplete?.({
-        nodeCount: result.estimated_nodes || 0,
-        corePerNode: result.core_per_node || 0,
+        nodeCount: parseInt(nodeCount),
+        corePerNode: parseInt(corePerNode),
         suggestedDate: result.suggested_date,
       });
     } catch (e: any) {
@@ -74,7 +94,7 @@ const Welcome = ({ onComplete }: WelcomeProps) => {
       <div className={styles["welcome-content"]}>
         <h2 className={styles["welcome-title"]}>欢迎使用HPC能源管家</h2>
         <p className={styles["welcome-text"]}>
-          这是您第一次使用本系统。为了为您提供准确的预测和节能策略，请先上传您的HPC历史使用数据（CSV 文件），系统将自动推断集群规模并为您生成预测结果。
+          这是您第一次使用本系统。为了为您提供准确的预测和节能策略，请先上传您的HPC历史使用数据（CSV 文件）并配置集群信息，系统将为您生成预测结果。
         </p>
 
         <form
@@ -109,6 +129,47 @@ const Welcome = ({ onComplete }: WelcomeProps) => {
             <div id="file-name" className={styles["file-info"]}>
               {fileName ? `已选择文件: ${fileName}` : ""}
             </div>
+          </div>
+
+          <div className={styles["form-group"]}>
+            <label className={styles["form-label"]}>
+              集群配置信息
+            </label>
+            <div className={styles["form-row"]}>
+              <div className={styles["form-field"]}>
+                <label htmlFor="node-count" className={styles["field-label"]}>
+                  总节点数
+                </label>
+                <input
+                  id="node-count"
+                  type="number"
+                  min="1"
+                  placeholder="例如: 32"
+                  value={nodeCount}
+                  onChange={(e) => setNodeCount(e.target.value)}
+                  className={styles["form-input"]}
+                  required
+                />
+              </div>
+              <div className={styles["form-field"]}>
+                <label htmlFor="core-per-node" className={styles["field-label"]}>
+                  每节点核心数
+                </label>
+                <input
+                  id="core-per-node"
+                  type="number"
+                  min="1"
+                  placeholder="例如: 32"
+                  value={corePerNode}
+                  onChange={(e) => setCorePerNode(e.target.value)}
+                  className={styles["form-input"]}
+                  required
+                />
+              </div>
+            </div>
+            <p className={styles["form-hint"]}>
+              请根据您的实际集群配置填写节点数和核心数
+            </p>
           </div>
 
           <div className={styles["config-btn"]}>

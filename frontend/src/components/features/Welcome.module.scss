@@ -91,6 +91,50 @@
   @include form-control;
 }
 
+.form-group {
+  margin-bottom: $spacing-xl;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $spacing-lg;
+  
+  @include respond-to(sm) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.field-label {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: $text-secondary;
+}
+
+.form-input {
+  @include form-control;
+  padding: $spacing-md $spacing-lg;
+  font-size: $font-size-base;
+  
+  &:focus {
+    border-color: $primary-color;
+    box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
+  }
+}
+
+.form-hint {
+  font-size: $font-size-xs;
+  color: $text-secondary;
+  margin-top: $spacing-sm;
+  font-style: italic;
+}
+
 .btn {
   flex: 1;
   @include button-base;

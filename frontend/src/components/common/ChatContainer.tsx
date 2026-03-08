@@ -11,6 +11,7 @@ import styles from "./ChatContainer.module.scss";
 const ChatContainer = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -29,16 +30,27 @@ const ChatContainer = () => {
 
   const handleSend = () => {
     const trimmed = inputValue.trim();
-    if (!trimmed) return;
+    if (!trimmed || isLoading) return;
 
     setInputValue("");
+    setIsLoading(true);
 
     sendChatMessage(trimmed)
       .then((data: ChatHistoryResponse) => {
         setMessages(data.messages);
       })
-      .catch(() => {
-        // 忽略错误，保留本地状态
+      .catch((error) => {
+        console.error("发送消息失败:", error);
+        // 显示错误消息
+        const errorMessage: ChatMessage = {
+          id: Date.now(),
+          author: "ai",
+          text: "抱歉，发送消息失败，请检查网络连接后重试。",
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
   };
 
@@ -76,6 +88,15 @@ const ChatContainer = () => {
             {message.text}
           </div>
         ))}
+        {isLoading && (
+          <div className={styles.message + " " + styles["message-ai"]}>
+            <div className={styles["typing-indicator"]}>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
       <div className={styles["chat-input-area"]}>
@@ -99,6 +120,7 @@ const ChatContainer = () => {
           type="button"
           className={styles["send-btn"]}
           onClick={handleSend}
+          disabled={isLoading || !inputValue.trim()}
           aria-label="发送消息"
         >
           <FaPaperPlane />

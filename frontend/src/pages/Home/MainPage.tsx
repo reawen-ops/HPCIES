@@ -15,6 +15,7 @@ const MainPage = () => {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().slice(0, 10),
   );
+  const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
 
   useEffect(() => {
     // 进入首页时刷新 profile，用于决定是否显示 Welcome（只在未配置/未上传时显示）
@@ -36,6 +37,9 @@ const MainPage = () => {
     // 配置完成后刷新一次，让各组件用到最新配置/数据
     await refreshMe().catch(() => {});
     
+    // 触发侧边栏刷新树形结构
+    setSidebarRefreshTrigger((prev) => prev + 1);
+    
     // 如果后端返回了建议的预测日期，使用它；否则选择昨天
     if (config.suggestedDate) {
       setSelectedDate(config.suggestedDate);
@@ -51,7 +55,10 @@ const MainPage = () => {
     <div>
       <Header />
       <div className={styles["main-container"]}>
-        <Sidebar onSelectDate={setSelectedDate} />
+        <Sidebar 
+          onSelectDate={setSelectedDate} 
+          refreshTrigger={sidebarRefreshTrigger}
+        />
         <div className={styles["content-area"]}>
           <ScrollPanel>
             <StatisticsInfo />

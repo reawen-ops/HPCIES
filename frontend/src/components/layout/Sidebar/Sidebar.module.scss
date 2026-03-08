@@ -61,3 +61,60 @@
     width: 20px;
   }
 }
+
+.tree-toggle {
+  background: none;
+  border: none;
+  padding: $spacing-sm 0;
+  cursor: pointer;
+  color: $text-secondary;
+  transition: color $transition-fast;
+  @include flex-center;
+  gap: $spacing-sm;
+  width: 100%;
+  text-align: left;
+  font-size: $font-size-base;
+
+  &:hover {
+    color: $primary-color;
+  }
+
+  svg {
+    font-size: $font-size-base;
+    width: 20px;
+  }
+}
+
+.tree-children {
+  list-style: none;
+  padding-left: $spacing-xl;
+  margin-top: $spacing-sm;
+}
+
+.tree-item-leaf {
+  padding: $spacing-xs 0;
+}
+
+.tree-leaf-button {
+  background: none;
+  border: none;
+  padding: $spacing-sm $spacing-md;
+  cursor: pointer;
+  color: $text-secondary;
+  transition: all $transition-fast;
+  border-radius: $radius-md;
+  width: 100%;
+  text-align: left;
+  font-size: $font-size-sm;
+
+  &:hover {
+    color: $primary-color;
+    background-color: rgba($primary-color, 0.05);
+  }
+
+  &.selected {
+    color: $primary-color;
+    background-color: rgba($primary-color, 0.1);
+    font-weight: $font-weight-medium;
+  }
+}
