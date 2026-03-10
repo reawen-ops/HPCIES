@@ -15,6 +15,7 @@ const MainPage = () => {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().slice(0, 10),
   );
+  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
 
   useEffect(() => {
@@ -57,6 +58,7 @@ const MainPage = () => {
       <div className={styles["main-container"]}>
         <Sidebar 
           onSelectDate={setSelectedDate} 
+          onSelectSession={setSelectedSessionId}
           refreshTrigger={sidebarRefreshTrigger}
         />
         <div className={styles["content-area"]}>
@@ -67,7 +69,11 @@ const MainPage = () => {
               onChangeDate={setSelectedDate}
             />
             <NodeMatrix />
-            <ChatContainer />
+            <ChatContainer
+              selectedSessionId={selectedSessionId}
+              contextDate={selectedDate}
+              onChatUpdated={() => setSidebarRefreshTrigger((prev) => prev + 1)}
+            />
           </ScrollPanel>
         </div>
       </div>

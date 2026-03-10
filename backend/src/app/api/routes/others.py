@@ -21,6 +21,7 @@ from app.schemas import (
     LoadPredictionResponse,
     DatePredictionResponse,
     HistoryTreeResponse,
+  ChatSessionsResponse,
 )
 from app.crud import get_user_by_id
 from app.utils import security
@@ -30,21 +31,90 @@ router = APIRouter()
 DbConn = sqlite3.Connection
 
 
+def _normalize_ai_response(text: str) -> str:
+  """
+  对大模型返回的文本做轻量格式优化：
+  - 去掉首尾空白
+  - 统一换行符
+  - 将超过 2 行的连续空行压缩为最多 2 行
+  """
+  if not isinstance(text, str):
+    return str(text)
+
+  s = text.replace("\r\n", "\n").replace("\r", "\n").strip()
+  lines = s.split("\n")
+  normalized_lines: list[str] = []
+  empty_streak = 0
+  for line in lines:
+    if line.strip() == "":
+      empty_streak += 1
+      if empty_streak <= 2:
+        normalized_lines.append("")
+    else:
+      empty_streak = 0
+      normalized_lines.append(line.rstrip())
+  return "\n".join(normalized_lines)
+
+
 # reuse the get_current_user definition from auth
 from app.api.routes.auth import get_current_user, CurrentUser
 
 
 @router.get("/stats", response_model=ClusterStats)
 def get_stats(conn: DbConn = Depends(get_connection), user: dict = Depends(get_current_user)) -> ClusterStats:
+    """
+    获取集群统计信息。
+    
+    返回：
+    - total_nodes: 总节点数
+    - core_per_node: 每节点核心数
+    - total_cores: 总核心数
+    - data_days: 历史数据天数
+    - latest_date: 最新数据日期
+    - avg_utilization: 平均利用率（最近7天）
+    """
     cur = conn.cursor()
-    cur.execute("SELECT node_count FROM user_profile WHERE user_id = ?", (user["id"],))
+    
+    # 获取集群配置
+    cur.execute(
+        "SELECT node_count, core_per_node FROM user_profile WHERE user_id = ?",
+        (user["id"],)
+    )
     row = cur.fetchone()
+    
     total_nodes = int(row["node_count"]) if row and row["node_count"] is not None else 0
+    core_per_node = int(row["core_per_node"]) if row and row["core_per_node"] is not None else 0
+    total_cores = total_nodes * core_per_node
+    
+    # 获取历史数据统计
+    cur.execute(
+        """
+        SELECT 
+            COUNT(DISTINCT DATE(ts)) as data_days,
+            MAX(DATE(ts)) as latest_date,
+            AVG(cpu_load) as avg_load
+        FROM historical_usage
+        WHERE user_id = ?
+        """,
+        (user["id"],)
+    )
+    stats_row = cur.fetchone()
+    
+    data_days = int(stats_row["data_days"]) if stats_row and stats_row["data_days"] else 0
+    latest_date = stats_row["latest_date"] if stats_row and stats_row["latest_date"] else None
+    avg_load = float(stats_row["avg_load"]) if stats_row and stats_row["avg_load"] else 0
+    
+    # 计算平均利用率
+    avg_utilization = (avg_load / total_cores * 100) if total_cores > 0 else 0
+    avg_utilization = min(100.0, max(0.0, avg_utilization))
+    
     return ClusterStats(
-        today_saving_percent=None,
         total_nodes=total_nodes,
-        running_nodes=None,
-        today_tasks=None,
+        core_per_node=core_per_node,
+        total_cores=total_cores,
+        data_days=data_days,
+        latest_date=latest_date,
+        avg_utilization=round(avg_utilization, 1),
     )
 
 
@@ -91,20 +161,80 @@ def get_nodes(
     return NodeMatrixResponse(total_nodes=total_nodes, nodes=nodes)
 
 
-@router.get("/chat/history", response_model=ChatHistoryResponse)
-def chat_history(
+@router.get("/chat/sessions", response_model=ChatSessionsResponse)
+def get_chat_sessions(
     conn: DbConn = Depends(get_connection), user: dict = Depends(get_current_user)
-) -> ChatHistoryResponse:
+) -> dict:
+    """获取用户的所有对话会话列表"""
+    from app.schemas import ChatSessionsResponse, ChatSession
+    
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, author, text FROM chat_messages WHERE user_id = ? ORDER BY id",
+        """
+        SELECT cs.id, cs.title, cs.created_at, cs.updated_at,
+               COUNT(cm.id) as message_count
+        FROM chat_sessions cs
+        LEFT JOIN chat_messages cm ON cs.id = cm.session_id
+        WHERE cs.user_id = ?
+        GROUP BY cs.id
+        ORDER BY cs.updated_at DESC
+        """,
         (user["id"],),
     )
     rows = cur.fetchall()
-    messages = [
-        {"id": int(r["id"]), "author": r["author"], "text": r["text"]} for r in rows
+    sessions = [
+        ChatSession(
+            id=int(r["id"]),
+            title=r["title"],
+            created_at=r["created_at"],
+            updated_at=r["updated_at"],
+            message_count=int(r["message_count"]) if r["message_count"] else 0,
+        )
+        for r in rows
     ]
-    return ChatHistoryResponse(messages=messages)
+    return ChatSessionsResponse(sessions=sessions)
+
+
+@router.get("/chat/history", response_model=ChatHistoryResponse)
+def chat_history(
+    session_id: int | None = None,
+    conn: DbConn = Depends(get_connection),
+    user: dict = Depends(get_current_user)
+) -> ChatHistoryResponse:
+    """获取指定会话的聊天历史，如果未指定则获取最新会话"""
+    cur = conn.cursor()
+    
+    # 如果没有指定 session_id，获取用户最新的会话
+    if session_id is None:
+        cur.execute(
+            "SELECT id FROM chat_sessions WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1",
+            (user["id"],),
+        )
+        row = cur.fetchone()
+        if row:
+            session_id = int(row["id"])
+        else:
+            # 如果没有会话，创建一个新会话
+            from app.utils.security import _now_iso
+            now = _now_iso()
+            cur.execute(
+                "INSERT INTO chat_sessions (user_id, title, created_at, updated_at) VALUES (?, '新对话', ?, ?)",
+                (user["id"], now, now),
+            )
+            conn.commit()
+            session_id = cur.lastrowid
+    
+    # 获取会话的消息历史
+    cur.execute(
+        "SELECT id, author, text, created_at FROM chat_messages WHERE session_id = ? ORDER BY id",
+        (session_id,),
+    )
+    rows = cur.fetchall()
+    messages = [
+        {"id": int(r["id"]), "author": r["author"], "text": r["text"], "created_at": r["created_at"]}
+        for r in rows
+    ]
+    return ChatHistoryResponse(session_id=session_id, messages=messages)
 
 
 @router.post("/chat/message", response_model=ChatHistoryResponse)
@@ -119,54 +249,196 @@ def post_chat_message(
         format_chat_history_for_api,
         DeepSeekError,
     )
+    from app.utils.security import _now_iso
     
-    cur = conn.cursor()
-    
-    # 保存用户消息
-    cur.execute(
-        "INSERT INTO chat_messages (user_id, author, text) VALUES (?, 'user', ?)",
-        (user["id"], payload.text),
-    )
-    conn.commit()
-    
-    # 获取用户的聊天历史（用于上下文）
-    cur.execute(
-        "SELECT id, author, text FROM chat_messages WHERE user_id = ? ORDER BY id",
-        (user["id"],),
-    )
-    history_rows = cur.fetchall()
-    history_messages = [
-        {"id": int(r["id"]), "author": r["author"], "text": r["text"]} 
-        for r in history_rows
-    ]
-    
-    # 格式化历史消息为 API 格式
-    api_messages = format_chat_history_for_api(history_messages, max_history=10)
-    
-    # 调用 DeepSeek API
     try:
-        ai_response = chat_with_deepseek(
-            messages=api_messages,
-            system_prompt=get_hpc_system_prompt(),
-            temperature=0.7,
-            max_tokens=2000,
+        cur = conn.cursor()
+        now = _now_iso()
+    
+        # 确定使用哪个会话
+        session_id = payload.session_id
+        if session_id is None:
+            # 创建新会话
+            # 使用用户消息的前20个字符作为标题
+            title = payload.text[:20] + ("..." if len(payload.text) > 20 else "")
+            cur.execute(
+                "INSERT INTO chat_sessions (user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                (user["id"], title, now, now),
+            )
+            conn.commit()
+            session_id = cur.lastrowid
+        else:
+            # 更新会话的 updated_at
+            cur.execute(
+                "UPDATE chat_sessions SET updated_at = ? WHERE id = ? AND user_id = ?",
+                (now, session_id, user["id"]),
+            )
+            conn.commit()
+    
+        # 保存用户消息
+        cur.execute(
+            "INSERT INTO chat_messages (session_id, user_id, author, text, created_at) VALUES (?, ?, 'user', ?, ?)",
+            (session_id, user["id"], payload.text, now),
         )
-    except DeepSeekError as e:
-        # 如果 API 调用失败，返回错误提示
-        ai_response = f"抱歉，AI 服务暂时不可用：{str(e)}"
+        conn.commit()
+    
+        # 获取该会话的聊天历史（用于上下文）
+        cur.execute(
+            "SELECT id, author, text, created_at FROM chat_messages WHERE session_id = ? ORDER BY id",
+            (session_id,),
+        )
+        history_rows = cur.fetchall()
+        history_messages = [
+            {"id": int(r["id"]), "author": r["author"], "text": r["text"], "created_at": r["created_at"]}
+            for r in history_rows
+        ]
+    
+        # 格式化历史消息为 API 格式
+        api_messages = format_chat_history_for_api(history_messages, max_history=10)
+
+        # 如果前端传入了 context_date（当前页面选中的预测日期），
+        # 则为该日期生成一段预测/统计摘要，作为额外的系统上下文消息插入到对话最前面。
+        if payload.context_date:
+            try:
+                from datetime import datetime, timedelta
+                from app.services.lstm_service import (
+                    predict_24h_load,
+                    calculate_energy_saving_curve,
+                    LSTMPredictionError,
+                )
+
+                # 解析日期
+                target_date = datetime.strptime(payload.context_date, "%Y-%m-%d")
+
+                # 获取用户集群配置
+                cur.execute(
+                    "SELECT node_count, core_per_node FROM user_profile WHERE user_id = ?",
+                    (user["id"],),
+                )
+                profile_row = cur.fetchone()
+                if profile_row and profile_row["node_count"] and profile_row["core_per_node"]:
+                    total_nodes = int(profile_row["node_count"])
+                    core_per_node = int(profile_row["core_per_node"])
+
+                    # 获取目标日期前 24 小时的历史数据
+                    start_time = target_date - timedelta(hours=24)
+                    end_time = target_date - timedelta(hours=1)
+                    cur.execute(
+                        """
+                        SELECT ts, cpu_load 
+                        FROM historical_usage 
+                        WHERE user_id = ? AND ts >= ? AND ts <= ?
+                        ORDER BY ts
+                        """,
+                        (
+                            user["id"],
+                            start_time.strftime("%Y-%m-%d %H:%M:%S"),
+                            end_time.strftime("%Y-%m-%d %H:%M:%S"),
+                        ),
+                    )
+                    history_rows = cur.fetchall()
+
+                    if len(history_rows) >= 24:
+                        history_24h = [float(row["cpu_load"]) for row in history_rows[:24]]
+                        last_timestamp = history_rows[23]["ts"]
+
+                        try:
+                            predictions = predict_24h_load(
+                                history_24h, last_timestamp, predict_hours=24
+                            )
+                        except LSTMPredictionError:
+                            predictions = []
+
+                        predicted_loads: list[float] = []
+                        if predictions:
+                            for pred in predictions:
+                                if isinstance(pred, dict):
+                                    predicted_load = (
+                                        pred.get("predicted_load")
+                                        or pred.get("load")
+                                        or pred.get("value", 0)
+                                    )
+                                else:
+                                    predicted_load = float(pred)
+                                predicted_loads.append(float(predicted_load))
+
+                        # 仅在预测成功时构造上下文
+                        if predicted_loads:
+                            total_cores = total_nodes * core_per_node
+                            utilization: list[float] = []
+                            for load in predicted_loads:
+                                util = (load / total_cores * 100) if total_cores > 0 else 0
+                                utilization.append(min(100.0, max(0.0, util)))
+
+                            energy_saving = calculate_energy_saving_curve(
+                                predicted_loads, total_nodes, core_per_node
+                            )
+
+                            # 将关键数据压缩成简洁的中文说明，避免 token 过多
+                            # 这里不逐小时列出，只给出统计量和部分示例
+                            avg_load = sum(predicted_loads) / len(predicted_loads)
+                            max_load = max(predicted_loads)
+                            min_load = min(predicted_loads)
+                            avg_util = sum(utilization) / len(utilization)
+
+                            context_text = (
+                                f"以下是当前前端页面选中的预测日期 {payload.context_date} 的真实数据摘要：\n"
+                                f"- 集群配置：总节点数 {total_nodes} 个，每节点 {core_per_node} 核。\n"
+                                f"- 24 小时预测负载（CPU 核时）统计：平均值约 {avg_load:.1f}、"
+                                f"最大值约 {max_load:.1f}、最小值约 {min_load:.1f}。\n"
+                                f"- 全开模式下的平均利用率约为 {avg_util:.1f}%。\n"
+                                f"- 系统还根据预测负载计算了节能模式曲线 energy_saving（长度 {len(energy_saving)}）。\n\n"
+                                "在回答用户关于该日期预测曲线、能耗或调度策略的问题时，请优先基于以上真实数据进行专业分析。"
+                            )
+
+                            api_messages.insert(
+                                0, {"role": "system", "content": context_text}
+                            )
+            except Exception:
+                # 如果构造上下文失败，不影响正常对话
+                pass
+    
+        # 调用 DeepSeek API
+        try:
+            ai_response_raw = chat_with_deepseek(
+                messages=api_messages,
+                system_prompt=get_hpc_system_prompt(),
+                temperature=0.7,
+                max_tokens=2000,
+            )
+            ai_response = _normalize_ai_response(ai_response_raw)
+        except DeepSeekError as e:
+            # 如果 API 调用失败，返回错误提示
+            ai_response = _normalize_ai_response(
+                f"抱歉，AI 服务暂时不可用：{str(e)}"
+            )
+        except Exception:
+            # 捕获其他异常
+            ai_response = "处理您的请求时发生错误，请稍后重试。"
+    
+        # 保存 AI 回复
+        cur.execute(
+            "INSERT INTO chat_messages (session_id, user_id, author, text, created_at) VALUES (?, ?, 'ai', ?, ?)",
+            (session_id, user["id"], ai_response, _now_iso()),
+        )
+        conn.commit()
+    
+        # 返回更新后的聊天历史
+        cur.execute(
+            "SELECT id, author, text, created_at FROM chat_messages WHERE session_id = ? ORDER BY id",
+            (session_id,),
+        )
+        rows = cur.fetchall()
+        messages = [
+            {"id": int(r["id"]), "author": r["author"], "text": r["text"], "created_at": r["created_at"]}
+            for r in rows
+        ]
+        return ChatHistoryResponse(session_id=session_id, messages=messages)
+    except HTTPException:
+        raise
     except Exception as e:
-        # 捕获其他异常
-        ai_response = f"处理您的请求时发生错误，请稍后重试。"
-    
-    # 保存 AI 回复
-    cur.execute(
-        "INSERT INTO chat_messages (user_id, author, text) VALUES (?, 'ai', ?)",
-        (user["id"], ai_response),
-    )
-    conn.commit()
-    
-    # 返回更新后的聊天历史
-    return chat_history(conn, user)
+        # 让前端能在 Network 里看到具体错误 detail，便于排障
+        raise HTTPException(status_code=500, detail=f"/api/chat/message 处理失败: {str(e)}")
 
 
 @router.post("/config")
@@ -394,10 +666,26 @@ def predict_date(
         predicted_loads, total_nodes, core_per_node
     )
 
-    # 生成策略、效果和影响信息
-    strategy = generate_strategy_info(predicted_loads, total_nodes)
-    effects = calculate_effects(predicted_loads, total_nodes, core_per_node)
-    impact = calculate_impact(predicted_loads)
+    # 使用 DeepSeek AI 分析预测数据，生成智能建议
+    from app.services.deepseek_service import analyze_prediction_data
+    
+    try:
+        analysis = analyze_prediction_data(
+            date=date,
+            predicted_loads=predicted_loads,
+            utilization=utilization,
+            total_nodes=total_nodes,
+            core_per_node=core_per_node,
+        )
+        strategy = analysis.get("strategy", {})
+        effects = analysis.get("effects", {})
+        impact = analysis.get("impact", {})
+    except Exception as e:
+        # 如果 AI 分析失败，使用默认值
+        print(f"AI 分析失败: {str(e)}")
+        strategy = generate_strategy_info(predicted_loads, total_nodes)
+        effects = calculate_effects(predicted_loads, total_nodes, core_per_node)
+        impact = calculate_impact(predicted_loads)
 
     return DatePredictionResponse(
         date=date,

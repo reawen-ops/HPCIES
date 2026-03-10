@@ -2,10 +2,10 @@
 @use "../../../assets/styles/variables" as *;
 
 .sidebar {
-  width: 280px;
+  width: 220px;
   background-color: $card-bg;
-  border-right: 1px solid $border-color;
-  padding: $spacing-xl 0;
+  border-right: 1px solid #f0f0f0;
+  padding: $spacing-lg 0;
   overflow-y: auto;
   @include custom-scrollbar;
 
@@ -13,25 +13,48 @@
     width: 100%;
     height: 250px;
     border-right: none;
-    border-bottom: 1px solid $border-color;
+    border-bottom: 1px solid #f0f0f0;
   }
 }
 
 .sidebar-section {
-  padding: 0 $spacing-xl;
-  margin-bottom: $spacing-xxxl;
+  padding: 0 $spacing-sm;
+  margin-bottom: $spacing-xl;
+}
+
+.chat-actions {
+  padding: 0 $spacing-xs $spacing-xs $spacing-xs;
+}
+
+.new-chat-button {
+  width: 100%;
+  border: 1px dashed rgba($primary-color, 0.4);
+  background: rgba($primary-color, 0.03);
+  color: $primary-color;
+  border-radius: $radius-md;
+  padding: $spacing-xs $spacing-sm;
+  font-size: $font-size-sm;
+  cursor: pointer;
+  transition: all $transition-fast;
+
+  &:hover {
+    background: rgba($primary-color, 0.08);
+    border-style: solid;
+  }
 }
 
 .sidebar-title {
-  font-size: $font-size-lg;
-  font-weight: $font-weight-bold;
-  color: $primary-dark;
-  margin-bottom: $spacing-lg;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: $text-secondary;
+  margin-bottom: $spacing-md;
   @include flex-center;
-  gap: $spacing-md;
+  gap: $spacing-sm;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 
   svg {
-    font-size: $spacing-xl;
+    font-size: $font-size-sm;
   }
 }
 
@@ -40,12 +63,12 @@
 }
 
 .tree-item {
-  padding: $spacing-sm 0;
+  padding: 2px 0;
   cursor: pointer;
   color: $text-secondary;
   transition: color $transition-fast;
   @include flex-center;
-  gap: $spacing-sm;
+  gap: $spacing-xs;
 
   &:hover {
     color: $primary-color;
@@ -57,64 +80,128 @@
   }
 
   svg {
-    font-size: $font-size-base;
-    width: 20px;
+    font-size: 12px;
+    width: 14px;
+    flex-shrink: 0;
   }
 }
 
 .tree-toggle {
   background: none;
   border: none;
-  padding: $spacing-sm 0;
+  padding: $spacing-xs $spacing-xs;
   cursor: pointer;
   color: $text-secondary;
-  transition: color $transition-fast;
+  transition: all $transition-fast;
   @include flex-center;
-  gap: $spacing-sm;
-  width: 100%;
+  gap: $spacing-xs;
+  width: auto;
+  max-width: 100%;
   text-align: left;
-  font-size: $font-size-base;
+  font-size: $font-size-sm;
+  border-radius: $radius-sm;
 
   &:hover {
     color: $primary-color;
+    background-color: rgba($primary-color, 0.04);
   }
 
   svg {
-    font-size: $font-size-base;
-    width: 20px;
+    font-size: 12px;
+    width: 14px;
+    flex-shrink: 0;
+  }
+  
+  span {
+    white-space: nowrap;
   }
 }
 
 .tree-children {
   list-style: none;
-  padding-left: $spacing-xl;
-  margin-top: $spacing-sm;
+  padding-left: $spacing-sm;
+  margin-top: 2px;
 }
 
 .tree-item-leaf {
-  padding: $spacing-xs 0;
+  padding: 1px 0;
+}
+
+.session-list-empty {
+  padding: $spacing-sm $spacing-sm;
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  @include flex-center;
+  gap: $spacing-xs;
 }
 
 .tree-leaf-button {
   background: none;
   border: none;
-  padding: $spacing-sm $spacing-md;
+  padding: $spacing-xs $spacing-xs;
   cursor: pointer;
   color: $text-secondary;
   transition: all $transition-fast;
-  border-radius: $radius-md;
-  width: 100%;
+  border-radius: $radius-sm;
+  width: auto;
+  max-width: 100%;
   text-align: left;
   font-size: $font-size-sm;
 
   &:hover {
     color: $primary-color;
-    background-color: rgba($primary-color, 0.05);
+    background-color: rgba($primary-color, 0.06);
   }
 
   &.selected {
     color: $primary-color;
-    background-color: rgba($primary-color, 0.1);
+    background-color: rgba($primary-color, 0.12);
     font-weight: $font-weight-medium;
   }
+}
+
+.session-button {
+  width: 100%;
+  border: none;
+  padding: $spacing-sm $spacing-sm;
+  border-radius: $radius-md;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 2px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color $transition-fast, box-shadow $transition-fast,
+    transform $transition-fast;
+
+  &:hover {
+    background-color: rgba($primary-color, 0.04);
+    transform: translateY(-1px);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  }
+
+  &.selected {
+    background: linear-gradient(
+      135deg,
+      rgba($primary-color, 0.08),
+      rgba($primary-color, 0.02)
+    );
+    border: 1px solid rgba($primary-color, 0.4);
+  }
+}
+
+.session-title {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: $text-primary;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.session-meta {
+  font-size: $font-size-xs;
+  color: $text-secondary;
 }

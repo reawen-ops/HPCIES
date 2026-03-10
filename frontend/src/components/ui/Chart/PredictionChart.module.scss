@@ -88,6 +88,53 @@
   border-radius: $radius-lg;
   padding: $spacing-md;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+  position: relative;
+}
+
+.chart-tooltip {
+  position: fixed;
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: $spacing-md;
+  border-radius: $radius-md;
+  font-size: $font-size-sm;
+  pointer-events: none;
+  z-index: $z-index-tooltip;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  min-width: 140px;
+  backdrop-filter: blur(8px);
+}
+
+.tooltip-time {
+  font-weight: $font-weight-bold;
+  margin-bottom: $spacing-sm;
+  padding-bottom: $spacing-sm;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  text-align: center;
+  color: #fff;
+}
+
+.tooltip-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: $spacing-xs;
+  gap: $spacing-md;
+}
+
+.tooltip-label-full {
+  color: #10b981;
+  font-size: $font-size-xs;
+}
+
+.tooltip-label-save {
+  color: #3b82f6;
+  font-size: $font-size-xs;
+}
+
+.tooltip-value {
+  font-weight: $font-weight-bold;
+  color: #fff;
 }
 
 .time-axis {

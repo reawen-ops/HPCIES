@@ -6,16 +6,12 @@ from pydantic import BaseModel, Field
 
 
 class ClusterStats(BaseModel):
-    today_saving_percent: float | None = Field(
-        None, description="今日预计节能百分比（由大模型提供，当前占位）"
-    )
-    total_nodes: int = Field(..., description="总节点数（来自用户配置）")
-    running_nodes: int | None = Field(
-        None, description="当前运行节点数（由大模型或调度策略提供，当前占位）"
-    )
-    today_tasks: int | None = Field(
-        None, description="今日预计任务数（由大模型提供，当前占位）"
-    )
+    total_nodes: int = Field(..., description="总节点数")
+    core_per_node: int = Field(0, description="每节点核心数")
+    total_cores: int = Field(0, description="总核心数")
+    data_days: int = Field(0, description="历史数据天数")
+    latest_date: str | None = Field(None, description="最新数据日期")
+    avg_utilization: float = Field(0.0, description="平均利用率（%）")
 
 
 class PredictionPoint(BaseModel):
@@ -46,17 +42,34 @@ class NodeMatrixResponse(BaseModel):
     nodes: List[NodeState]
 
 
+class ChatSession(BaseModel):
+    id: int
+    title: str
+    created_at: str
+    updated_at: str
+    message_count: int = 0
+
+
+class ChatSessionsResponse(BaseModel):
+    sessions: List[ChatSession]
+
+
 class ChatMessage(BaseModel):
     id: int
     author: Literal["user", "ai"]
     text: str
+    created_at: str
 
 
 class ChatMessageCreate(BaseModel):
     text: str
+    session_id: int | None = None
+    # 当前前端页面选中的预测日期，用于在聊天时附带该日期的预测/统计上下文（格式：YYYY-MM-DD）
+    context_date: str | None = None
 
 
 class ChatHistoryResponse(BaseModel):
+    session_id: int
     messages: List[ChatMessage]
 
 

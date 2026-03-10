@@ -16,29 +16,27 @@ const StatisticsInfo = () => {
   return (
     <div className={styles["stats-card"]}>
       <div className={styles["stat-item"]}>
-        <div className={styles["stat-title"]}>今日预计节能</div>
-        <div className={styles["stat-value"]}>
-          {stats?.today_saving_percent != null
-            ? `${stats.today_saving_percent.toFixed(1)}%`
-            : "训练中"}
-        </div>
-      </div>
-      <div className={styles["stat-item"]}>
         <div className={styles["stat-title"]}>总节点数</div>
         <div className={styles["stat-value"]}>
           {stats ? stats.total_nodes : "--"}
         </div>
       </div>
       <div className={styles["stat-item"]}>
-        <div className={styles["stat-title"]}>当前运行节点</div>
+        <div className={styles["stat-title"]}>总核心数</div>
         <div className={styles["stat-value"]}>
-          {stats?.running_nodes != null ? stats.running_nodes : "训练中"}
+          {stats ? `${stats.total_cores} 核` : "--"}
         </div>
       </div>
       <div className={styles["stat-item"]}>
-        <div className={styles["stat-title"]}>今日预计任务数</div>
+        <div className={styles["stat-title"]}>平均利用率</div>
         <div className={styles["stat-value"]}>
-          {stats?.today_tasks != null ? stats.today_tasks : "训练中"}
+          {stats ? `${stats.avg_utilization.toFixed(1)}%` : "--"}
+        </div>
+      </div>
+      <div className={styles["stat-item"]}>
+        <div className={styles["stat-title"]}>历史数据</div>
+        <div className={styles["stat-value"]}>
+          {stats ? `${stats.data_days} 天` : "--"}
         </div>
       </div>
     </div>

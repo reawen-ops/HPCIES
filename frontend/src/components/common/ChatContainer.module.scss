@@ -33,6 +33,8 @@
   border-radius: $radius-xl;
   line-height: 1.5;
   font-size: $font-size-base;
+  // 让换行符在聊天气泡中生效，保留多行和空行，提升可读性
+  white-space: pre-wrap;
 
   &-user {
     align-self: flex-end;
@@ -139,5 +141,54 @@
   30% {
     transform: translateY(-10px);
     opacity: 1;
+  }
+}
+
+.welcome-message {
+  @include flex-column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: $spacing-xl * 2;
+  color: $text-secondary;
+  gap: $spacing-lg;
+
+  .welcome-icon {
+    font-size: 48px;
+    color: $primary-color;
+    margin-bottom: $spacing-md;
+  }
+
+  h3 {
+    font-size: $font-size-xl;
+    font-weight: $font-weight-medium;
+    color: $text-primary;
+    margin: 0;
+  }
+
+  p {
+    font-size: $font-size-base;
+    margin: $spacing-sm 0;
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    text-align: left;
+    
+    li {
+      padding: $spacing-sm 0;
+      position: relative;
+      padding-left: $spacing-lg;
+      
+      &::before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        color: $primary-color;
+        font-weight: bold;
+      }
+    }
   }
 }

@@ -76,11 +76,12 @@ export async function fetchHistoryTree(): Promise<HistoryTreeResponse> {
 }
 
 export interface ClusterStats {
-  // 下列三个字段未来由大模型提供，目前可能为 null
-  today_saving_percent: number | null;
   total_nodes: number;
-  running_nodes: number | null;
-  today_tasks: number | null;
+  core_per_node: number;
+  total_cores: number;
+  data_days: number;
+  latest_date: string | null;
+  avg_utilization: number;
 }
 
 export interface PredictionResponse {
@@ -89,17 +90,17 @@ export interface PredictionResponse {
   energy_saving: number[];
   strategy: {
     sleep_periods: string;
-    node_distribution: {
-      running: string;
-      to_sleep: string;
-      sleeping: string;
-    };
-    wake_ahead: string;
+    running_nodes: string;
+    to_sleep_nodes: string;
+    sleeping_nodes: string;
   };
   effects: {
-    saving_percent: string;
-    saving_core_hours: string;
-    saving_power: string;
+    avg_utilization: string;
+    optimized_utilization: string;
+    load_stability: string;
+    peak_utilization: string;
+    min_utilization: string;
+    utilization_range: string;
   };
   impact: {
     delay: string;
@@ -126,9 +127,23 @@ export interface ChatMessage {
   id: number;
   author: ChatAuthor;
   text: string;
+  created_at: string;
+}
+
+export interface ChatSession {
+  id: number;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+}
+
+export interface ChatSessionsResponse {
+  sessions: ChatSession[];
 }
 
 export interface ChatHistoryResponse {
+  session_id: number;
   messages: ChatMessage[];
 }
 
@@ -147,18 +162,32 @@ export async function fetchNodeMatrix(): Promise<NodeMatrixResponse> {
   return response.data;
 }
 
-export async function fetchChatHistory(): Promise<ChatHistoryResponse> {
+export async function fetchChatSessions(): Promise<ChatSessionsResponse> {
   const response =
-    await apiClient.get<ChatHistoryResponse>("/api/chat/history");
+    await apiClient.get<ChatSessionsResponse>("/api/chat/sessions");
+  return response.data;
+}
+
+export async function fetchChatHistory(
+  sessionId?: number,
+): Promise<ChatHistoryResponse> {
+  const response = await apiClient.get<ChatHistoryResponse>(
+    "/api/chat/history",
+    { params: sessionId ? { session_id: sessionId } : {} },
+  );
   return response.data;
 }
 
 export async function sendChatMessage(
   text: string,
+  sessionId?: number,
+  contextDate?: string,
 ): Promise<ChatHistoryResponse> {
   const response = await apiClient.post<ChatHistoryResponse>(
     "/api/chat/message",
-    { text },
+    { text, session_id: sessionId, context_date: contextDate },
+    // DeepSeek 调用可能较慢，避免前端 10s 超时导致“发送失败”
+    { timeout: 60000 },
   );
   return response.data;
 }
@@ -199,17 +228,17 @@ export interface DatePredictionResponse {
   energy_saving: number[];
   strategy: {
     sleep_periods: string;
-    node_distribution: {
-      running: string;
-      to_sleep: string;
-      sleeping: string;
-    };
-    wake_ahead: string;
+    running_nodes: string;
+    to_sleep_nodes: string;
+    sleeping_nodes: string;
   };
   effects: {
-    saving_percent: string;
-    saving_core_hours: string;
-    saving_power: string;
+    avg_utilization: string;
+    optimized_utilization: string;
+    load_stability: string;
+    peak_utilization: string;
+    min_utilization: string;
+    utilization_range: string;
   };
   impact: {
     delay: string;

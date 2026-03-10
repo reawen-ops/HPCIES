@@ -21,6 +21,21 @@ const PredictionChart = ({
   const [data, setData] = useState<PredictionResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tooltip, setTooltip] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    label: string;
+    fullValue: number;
+    saveValue: number;
+  }>({
+    visible: false,
+    x: 0,
+    y: 0,
+    label: "",
+    fullValue: 0,
+    saveValue: 0,
+  });
 
   // 绘图逻辑只依赖 displayMode 和最新的数据；外围 catch 防止偶发异常导致整个组件挂掉
   useEffect(() => {
@@ -41,6 +56,56 @@ const PredictionChart = ({
     }
   }, [displayMode, data]);
 
+  // 处理鼠标移动事件以显示tooltip
+  const handleMouseMove = useCallback(
+    (event: React.MouseEvent<HTMLCanvasElement>) => {
+      const canvas = canvasRef.current;
+      if (!canvas || !data) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = event.clientX - rect.left;
+
+      // 计算图表区域
+      const chartLeft = 50;
+      const chartRight = canvas.width - 20;
+      const chartWidth = chartRight - chartLeft;
+      const pointsCount = data.full_load.length;
+      const stepX = chartWidth / (pointsCount - 1);
+
+      // 查找最近的数据点
+      let closestIndex = -1;
+      let minDistance = Infinity;
+
+      for (let i = 0; i < pointsCount; i++) {
+        const pointX = chartLeft + i * stepX;
+        const distance = Math.abs(mouseX - pointX);
+
+        if (distance < minDistance && distance < 20) {
+          minDistance = distance;
+          closestIndex = i;
+        }
+      }
+
+      if (closestIndex >= 0) {
+        setTooltip({
+          visible: true,
+          x: event.clientX,
+          y: event.clientY,
+          label: data.labels[closestIndex] || "",
+          fullValue: data.full_load[closestIndex] || 0,
+          saveValue: data.energy_saving[closestIndex] || 0,
+        });
+      } else {
+        setTooltip((prev) => ({ ...prev, visible: false }));
+      }
+    },
+    [data]
+  );
+
+  const handleMouseLeave = useCallback(() => {
+    setTooltip((prev) => ({ ...prev, visible: false }));
+  }, []);
+
   // fetch 封装，允许传递范围（range）给后端
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -59,9 +124,25 @@ const PredictionChart = ({
         labels: resp.labels ?? [],
         full_load: resp.utilization ?? [],
         energy_saving: resp.energy_saving ?? [],
-        strategy: resp.strategy,
-        effects: resp.effects,
-        impact: resp.impact,
+        strategy: {
+          sleep_periods: resp.strategy?.sleep_periods ?? "数据待获取",
+          running_nodes: resp.strategy?.running_nodes ?? "0 个（0%）",
+          to_sleep_nodes: resp.strategy?.to_sleep_nodes ?? "0 个（0%）",
+          sleeping_nodes: resp.strategy?.sleeping_nodes ?? "0 个（0%）",
+        },
+        effects: {
+          avg_utilization: resp.effects?.avg_utilization ?? "0%",
+          optimized_utilization: resp.effects?.optimized_utilization ?? "0%",
+          load_stability: resp.effects?.load_stability ?? "数据待获取",
+          peak_utilization: resp.effects?.peak_utilization ?? "0%",
+          min_utilization: resp.effects?.min_utilization ?? "0%",
+          utilization_range: resp.effects?.utilization_range ?? "0% - 0%",
+        },
+        impact: {
+          delay: resp.impact?.delay ?? "数据待获取",
+          queue_risk: resp.impact?.queue_risk ?? "数据待获取",
+          emergency_response: resp.impact?.emergency_response ?? "数据待获取",
+        },
       });
     } catch (err: any) {
       console.error(err);
@@ -150,12 +231,46 @@ const PredictionChart = ({
                   Array.isArray(data.energy_saving) &&
                   data.energy_saving.length > 0;
                 return hasData ? (
-                  <canvas
-                    ref={canvasRef}
-                    id="prediction-chart"
-                    width={900}
-                    height={220}
-                  />
+                  <>
+                    <canvas
+                      ref={canvasRef}
+                      id="prediction-chart"
+                      width={900}
+                      height={220}
+                      onMouseMove={handleMouseMove}
+                      onMouseLeave={handleMouseLeave}
+                      style={{ cursor: "crosshair" }}
+                    />
+                    {tooltip.visible && (
+                      <div
+                        className={styles["chart-tooltip"]}
+                        style={{
+                          left: tooltip.x + 10,
+                          top: tooltip.y - 80,
+                        }}
+                      >
+                        <div className={styles["tooltip-time"]}>
+                          {tooltip.label}
+                        </div>
+                        <div className={styles["tooltip-item"]}>
+                          <span className={styles["tooltip-label-full"]}>
+                            全开模式
+                          </span>
+                          <span className={styles["tooltip-value"]}>
+                            {tooltip.fullValue.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className={styles["tooltip-item"]}>
+                          <span className={styles["tooltip-label-save"]}>
+                            节能模式
+                          </span>
+                          <span className={styles["tooltip-value"]}>
+                            {tooltip.saveValue.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <span>预测数据待获取</span>
                 );
@@ -192,8 +307,7 @@ const PredictionChart = ({
                       必须运行
                     </span>
                     <span className={styles["status-value"]}>
-                      {data?.strategy?.node_distribution?.running ??
-                        "0 个（0%）"}
+                      {data?.strategy?.running_nodes ?? "0 个（0%）"}
                     </span>
                   </div>
                   <div className={styles["status-item"]}>
@@ -204,8 +318,7 @@ const PredictionChart = ({
                       待休眠
                     </span>
                     <span className={styles["status-value"]}>
-                      {data?.strategy?.node_distribution?.to_sleep ??
-                        "0 个（0%）"}
+                      {data?.strategy?.to_sleep_nodes ?? "0 个（0%）"}
                     </span>
                   </div>
                   <div className={styles["status-item"]}>
@@ -216,17 +329,10 @@ const PredictionChart = ({
                       休眠
                     </span>
                     <span className={styles["status-value"]}>
-                      {data?.strategy?.node_distribution?.sleeping ??
-                        "0 个（0%）"}
+                      {data?.strategy?.sleeping_nodes ?? "0 个（0%）"}
                     </span>
                   </div>
                 </div>
-              </div>
-              <div className={styles["detail-item"]}>
-                <span className={styles["detail-label"]}>提前唤醒时间</span>
-                <span className={styles["detail-value"]}>
-                  {data?.strategy?.wake_ahead ?? "数据待获取"}
-                </span>
               </div>
             </div>
           </div>
@@ -234,12 +340,12 @@ const PredictionChart = ({
           <div className={styles["detail-card"]}>
             <div className={styles["detail-header"]}>
               <FaLeaf />
-              <h4>节能效果</h4>
+              <h4>负载特征</h4>
             </div>
             <div className={styles["detail-content"]}>
               <div className={styles["status-list"]}>
                 <div className={styles["status-item"]}>
-                  <span className={styles["status-label"]}>预计节能</span>
+                  <span className={styles["status-label"]}>当前平均利用率</span>
                   <span
                     className={
                       styles["status-value"] +
@@ -247,19 +353,25 @@ const PredictionChart = ({
                       styles["detail-value-highlight"]
                     }
                   >
-                    {data?.effects?.saving_percent ?? "0%"}
+                    {data?.effects?.avg_utilization ?? "0%"}
                   </span>
                 </div>
                 <div className={styles["status-item"]}>
-                  <span className={styles["status-label"]}>节省核时</span>
+                  <span className={styles["status-label"]}>优化后利用率</span>
                   <span className={styles["status-value"]}>
-                    {data?.effects?.saving_core_hours ?? "0 核时/天"}
+                    {data?.effects?.optimized_utilization ?? "0%"}
                   </span>
                 </div>
                 <div className={styles["status-item"]}>
-                  <span className={styles["status-label"]}>节省电力</span>
+                  <span className={styles["status-label"]}>负载稳定性</span>
                   <span className={styles["status-value"]}>
-                    {data?.effects?.saving_power ?? "~0 kWh/天"}
+                    {data?.effects?.load_stability ?? "数据待获取"}
+                  </span>
+                </div>
+                <div className={styles["status-item"]}>
+                  <span className={styles["status-label"]}>利用率范围</span>
+                  <span className={styles["status-value"]}>
+                    {data?.effects?.utilization_range ?? "0% - 0%"}
                   </span>
                 </div>
               </div>
@@ -386,49 +498,13 @@ function drawChart(
   // 清除画布
   ctx.clearRect(0, 0, width, height);
 
-  // 设置更好的渲染质量
+  // 设置渲染质量
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  // 绘制背景渐变
-  const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
-  bgGradient.addColorStop(0, '#f8fafc');
-  bgGradient.addColorStop(1, '#ffffff');
-  ctx.fillStyle = bgGradient;
+  // 绘制纯白背景（办公风格）
+  ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, width, height);
-
-  // 绘制网格和刻度
-  ctx.strokeStyle = "#e5e7eb";
-  ctx.lineWidth = 1;
-  ctx.font = "12px 'Segoe UI', sans-serif";
-
-  // 水平网格线（6条）
-  for (let i = 0; i <= 5; i += 1) {
-    const y = 20 + i * 32;
-    
-    // 绘制网格线
-    ctx.beginPath();
-    ctx.moveTo(50, y);
-    ctx.lineTo(width - 20, y);
-    ctx.stroke();
-
-    // 绘制Y轴刻度
-    const value = (5 - i) * 20;
-    ctx.fillStyle = "#6b7280";
-    ctx.textAlign = "right";
-    ctx.textBaseline = "middle";
-    ctx.fillText(`${value}%`, 42, y);
-  }
-
-  // 绘制垂直参考线（每4小时一条）
-  ctx.strokeStyle = "#f3f4f6";
-  for (let i = 0; i <= 24; i += 4) {
-    const x = 50 + (i / 24) * (width - 70);
-    ctx.beginPath();
-    ctx.moveTo(x, 20);
-    ctx.lineTo(x, height - 20);
-    ctx.stroke();
-  }
 
   // 计算绘图区域
   const chartLeft = 50;
@@ -441,16 +517,67 @@ function drawChart(
   const maxValue = 100;
   const scaleY = chartHeight / maxValue;
   const pointsCount = fullLoadData.length;
-  const stepX = chartWidth / Math.max(pointsCount - 1, 1);
+  const stepX = chartWidth / (pointsCount - 1);
 
-  // 绘制数据线的函数
-  const drawDataLine = (data: number[], color: string, label: string) => {
+  // 绘制网格和刻度（办公风格：细线、浅灰色）
+  ctx.strokeStyle = "#e8e8e8";
+  ctx.lineWidth = 1;
+  ctx.font = "11px 'Segoe UI', 'Microsoft YaHei', sans-serif";
+
+  // 水平网格线（6条）
+  for (let i = 0; i <= 5; i += 1) {
+    const y = chartTop + i * (chartHeight / 5);
+    
+    // 绘制网格线
+    ctx.beginPath();
+    ctx.moveTo(chartLeft, y);
+    ctx.lineTo(chartRight, y);
+    ctx.stroke();
+
+    // 绘制Y轴刻度
+    const value = (5 - i) * 20;
+    ctx.fillStyle = "#666666";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`${value}%`, chartLeft - 8, y);
+  }
+
+  // 绘制垂直参考线（与数据点对齐）
+  ctx.strokeStyle = "#f5f5f5";
+  for (let i = 0; i < pointsCount; i++) {
+    if (i % 4 === 0) {
+      const x = chartLeft + i * stepX;
+      ctx.beginPath();
+      ctx.moveTo(x, chartTop);
+      ctx.lineTo(x, chartBottom);
+      ctx.stroke();
+    }
+  }
+
+  // 绘制坐标轴（办公风格：深灰色、较粗）
+  ctx.strokeStyle = "#333333";
+  ctx.lineWidth = 1.5;
+  
+  // Y轴
+  ctx.beginPath();
+  ctx.moveTo(chartLeft, chartTop);
+  ctx.lineTo(chartLeft, chartBottom);
+  ctx.stroke();
+  
+  // X轴
+  ctx.beginPath();
+  ctx.moveTo(chartLeft, chartBottom);
+  ctx.lineTo(chartRight, chartBottom);
+  ctx.stroke();
+
+  // 绘制数据线的函数（办公风格：直线连接、无阴影）
+  const drawDataLine = (data: number[], color: string, _label: string) => {
     if (data.length === 0) return;
 
-    // 绘制填充区域
+    // 绘制填充区域（办公风格：淡色填充）
     const fillGradient = ctx.createLinearGradient(0, chartTop, 0, chartBottom);
-    fillGradient.addColorStop(0, `${color}30`);
-    fillGradient.addColorStop(1, `${color}08`);
+    fillGradient.addColorStop(0, `${color}15`);
+    fillGradient.addColorStop(1, `${color}05`);
     
     ctx.fillStyle = fillGradient;
     ctx.beginPath();
@@ -466,14 +593,11 @@ function drawChart(
     ctx.closePath();
     ctx.fill();
 
-    // 绘制主线条（更粗、更平滑）
+    // 绘制主线条（办公风格：实线、无阴影）
     ctx.strokeStyle = color;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.shadowColor = `${color}40`;
-    ctx.shadowBlur = 8;
-    ctx.shadowOffsetY = 2;
     
     ctx.beginPath();
     data.forEach((value, index) => {
@@ -487,31 +611,26 @@ function drawChart(
       }
     });
     ctx.stroke();
-    
-    // 重置阴影
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetY = 0;
 
-    // 绘制数据点（更大、更明显）
+    // 绘制数据点（办公风格：小圆点）
     data.forEach((value, index) => {
       const x = chartLeft + index * stepX;
       const y = chartBottom - value * scaleY;
 
-      // 外圈（白色边框）
+      // 白色边框
       ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(x, y, 5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 内圈（颜色填充）
-      ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(x, y, 3.5, 0, Math.PI * 2);
       ctx.fill();
+
+      // 颜色填充
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+      ctx.fill();
     });
 
-    // 绘制最高点和最低点标注
+    // 绘制最高点和最低点标注（办公风格：简洁标注）
     const maxVal = Math.max(...data);
     const minVal = Math.min(...data);
     const maxIdx = data.indexOf(maxVal);
@@ -522,11 +641,26 @@ function drawChart(
       const x = chartLeft + maxIdx * stepX;
       const y = chartBottom - maxVal * scaleY;
       
+      // 绘制标注背景
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      const text = `${maxVal.toFixed(1)}%`;
+      ctx.font = "bold 10px 'Segoe UI', 'Microsoft YaHei', sans-serif";
+      const metrics = ctx.measureText(text);
+      const padding = 4;
+      const boxWidth = metrics.width + padding * 2;
+      const boxHeight = 16;
+      const boxX = x - boxWidth / 2;
+      const boxY = y - boxHeight - 8;
+      
+      ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+      ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+      
       ctx.fillStyle = color;
-      ctx.font = "bold 11px 'Segoe UI', sans-serif";
       ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      ctx.fillText(`${maxVal.toFixed(1)}%`, x, y - 10);
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, x, boxY + boxHeight / 2);
     }
 
     // 标注最低点
@@ -534,11 +668,26 @@ function drawChart(
       const x = chartLeft + minIdx * stepX;
       const y = chartBottom - minVal * scaleY;
       
+      // 绘制标注背景
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      const text = `${minVal.toFixed(1)}%`;
+      ctx.font = "bold 10px 'Segoe UI', 'Microsoft YaHei', sans-serif";
+      const metrics = ctx.measureText(text);
+      const padding = 4;
+      const boxWidth = metrics.width + padding * 2;
+      const boxHeight = 16;
+      const boxX = x - boxWidth / 2;
+      const boxY = y + 8;
+      
+      ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+      ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+      
       ctx.fillStyle = color;
-      ctx.font = "bold 11px 'Segoe UI', sans-serif";
       ctx.textAlign = "center";
-      ctx.textBaseline = "top";
-      ctx.fillText(`${minVal.toFixed(1)}%`, x, y + 10);
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, x, boxY + boxHeight / 2);
     }
   };
 
@@ -550,22 +699,6 @@ function drawChart(
   if (displayMode === "对比模式" || displayMode === "仅节能") {
     drawDataLine(energySavingData, "#3b82f6", "节能模式");
   }
-
-  // 绘制坐标轴
-  ctx.strokeStyle = "#9ca3af";
-  ctx.lineWidth = 2;
-  
-  // Y轴
-  ctx.beginPath();
-  ctx.moveTo(chartLeft, chartTop);
-  ctx.lineTo(chartLeft, chartBottom);
-  ctx.stroke();
-  
-  // X轴
-  ctx.beginPath();
-  ctx.moveTo(chartLeft, chartBottom);
-  ctx.lineTo(chartRight, chartBottom);
-  ctx.stroke();
 }
 
 export default PredictionChart;
