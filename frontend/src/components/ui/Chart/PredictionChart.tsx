@@ -276,7 +276,11 @@ const PredictionChart = ({
                 );
               })()}
           </div>
-          <div className={styles["time-axis"]}>
+          <div
+            className={styles["time-axis"]}
+            // 与 canvas 中 CHART_LEFT / CHART_RIGHT_MARGIN 一致，使时间刻度与描点在 X 轴上对齐
+            style={{ paddingLeft: 50, paddingRight: 20 }}
+          >
             {data?.labels?.length
               ? data.labels.map((label) => <span key={label}>{label}</span>)
               : null}
@@ -495,6 +499,10 @@ function drawChart(
   const width = canvas.width;
   const height = canvas.height;
 
+  // 常量：与下方时间轴的左右 padding 对齐
+  const CHART_LEFT = 50;
+  const CHART_RIGHT_MARGIN = 20;
+
   // 清除画布
   ctx.clearRect(0, 0, width, height);
 
@@ -507,27 +515,54 @@ function drawChart(
   ctx.fillRect(0, 0, width, height);
 
   // 计算绘图区域
-  const chartLeft = 50;
-  const chartRight = width - 20;
+  const chartLeft = CHART_LEFT;
+  const chartRight = width - CHART_RIGHT_MARGIN;
   const chartTop = 20;
   const chartBottom = height - 20;
   const chartWidth = chartRight - chartLeft;
   const chartHeight = chartBottom - chartTop;
 
-  const maxValue = 100;
-  const scaleY = chartHeight / maxValue;
+  // 根据数据动态计算 Y 轴范围，使曲线更“有起伏”
+  const allValues = [...fullLoadData, ...energySavingData].filter(
+    (v) => Number.isFinite(v),
+  );
+  let minValue = 0;
+  let maxValue = 100;
+  if (allValues.length > 0) {
+    minValue = Math.min(...allValues);
+    maxValue = Math.max(...allValues);
+
+    if (maxValue === minValue) {
+      // 所有点几乎相等，给一个固定窗口避免画成一条直线
+      const center = maxValue;
+      minValue = Math.max(0, center - 10);
+      maxValue = center + 10;
+    } else {
+      // 在上下各扩 10% 的可视区，避免贴边
+      const padding = (maxValue - minValue) * 0.1;
+      minValue = Math.max(0, minValue - padding);
+      maxValue = maxValue + padding;
+    }
+  }
+
+  const valueRange = maxValue - minValue || 1;
+  const scaleY = chartHeight / valueRange;
   const pointsCount = fullLoadData.length;
   const stepX = chartWidth / (pointsCount - 1);
 
-  // 绘制网格和刻度（办公风格：细线、浅灰色）
+  // 绘制网格和刻度（办公风格：细线、浅灰色），刻度随数据动态变化
   ctx.strokeStyle = "#e8e8e8";
   ctx.lineWidth = 1;
   ctx.font = "11px 'Segoe UI', 'Microsoft YaHei', sans-serif";
 
   // 水平网格线（6条）
-  for (let i = 0; i <= 5; i += 1) {
-    const y = chartTop + i * (chartHeight / 5);
-    
+  const gridLines = 5;
+  const stepValue = valueRange / gridLines;
+  for (let i = 0; i <= gridLines; i += 1) {
+    const t = i / gridLines;
+    const y = chartTop + t * chartHeight;
+    const value = maxValue - i * stepValue;
+
     // 绘制网格线
     ctx.beginPath();
     ctx.moveTo(chartLeft, y);
@@ -535,11 +570,10 @@ function drawChart(
     ctx.stroke();
 
     // 绘制Y轴刻度
-    const value = (5 - i) * 20;
     ctx.fillStyle = "#666666";
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
-    ctx.fillText(`${value}%`, chartLeft - 8, y);
+    ctx.fillText(`${value.toFixed(1)}%`, chartLeft - 8, y);
   }
 
   // 绘制垂直参考线（与数据点对齐）
@@ -585,7 +619,7 @@ function drawChart(
     
     data.forEach((value, index) => {
       const x = chartLeft + index * stepX;
-      const y = chartBottom - value * scaleY;
+      const y = chartBottom - (value - minValue) * scaleY;
       ctx.lineTo(x, y);
     });
     
@@ -602,7 +636,7 @@ function drawChart(
     ctx.beginPath();
     data.forEach((value, index) => {
       const x = chartLeft + index * stepX;
-      const y = chartBottom - value * scaleY;
+      const y = chartBottom - (value - minValue) * scaleY;
 
       if (index === 0) {
         ctx.moveTo(x, y);
@@ -615,7 +649,7 @@ function drawChart(
     // 绘制数据点（办公风格：小圆点）
     data.forEach((value, index) => {
       const x = chartLeft + index * stepX;
-      const y = chartBottom - value * scaleY;
+      const y = chartBottom - (value - minValue) * scaleY;
 
       // 白色边框
       ctx.fillStyle = '#ffffff';
@@ -639,7 +673,7 @@ function drawChart(
     // 标注最高点
     if (maxIdx >= 0) {
       const x = chartLeft + maxIdx * stepX;
-      const y = chartBottom - maxVal * scaleY;
+      const y = chartBottom - (maxVal - minValue) * scaleY;
       
       // 绘制标注背景
       ctx.fillStyle = '#ffffff';
@@ -666,7 +700,7 @@ function drawChart(
     // 标注最低点
     if (minIdx >= 0 && minIdx !== maxIdx) {
       const x = chartLeft + minIdx * stepX;
-      const y = chartBottom - minVal * scaleY;
+      const y = chartBottom - (minVal - minValue) * scaleY;
       
       // 绘制标注背景
       ctx.fillStyle = '#ffffff';
