@@ -12,6 +12,10 @@
   max-width: 1200px;
   padding: 0 $spacing-xl;
   margin: 0 auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .logo {
@@ -22,5 +26,40 @@
 
   svg {
     font-size: $font-size-xxl;
+  }
+}
+
+.user-area {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding-left: $spacing-xl;
+}
+
+.user-name {
+  color: #e2e8f0;
+  font-size: $font-size-base;
+  font-weight: $font-weight-medium;
+}
+
+.logout-button {
+  background: transparent;
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  color: #e2e8f0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: $font-size-base;
+  transition: background-color $transition-fast, color $transition-fast,
+    border-color $transition-fast;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-color: #fff;
+    color: #fff;
   }
 }
