@@ -70,7 +70,7 @@ const Sidebar = ({
 
     return tree.years.map((year) => {
       const yearKey = `y-${year.year}`;
-      const yearOpen = open[yearKey] ?? true;
+      const yearOpen = open[yearKey] ?? false;
       return (
         <li key={yearKey} className={styles["tree-item"]}>
           <button

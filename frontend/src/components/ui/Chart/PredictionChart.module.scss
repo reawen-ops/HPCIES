@@ -82,13 +82,21 @@
 }
 
 .chart-content {
-  height: 220px;
+  height: 300px;
   @include flex-center;
   background: linear-gradient(to bottom, #f8fafc, #ffffff);
-  border-radius: $radius-lg;
-  padding: $spacing-md;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+  border-radius: $radius-xl;
+  padding: $spacing-lg;
+  box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.06);
   position: relative;
+}
+
+.chart-inline-controls {
+  margin-top: $spacing-md;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-lg;
 }
 
 .chart-tooltip {
@@ -138,8 +146,9 @@
 }
 
 .time-axis {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   color: $text-secondary;
   font-size: $font-size-xs;
   font-weight: $font-weight-medium;
@@ -304,18 +313,6 @@ input[type="date"] {
   color: $danger-color;
   font-size: $font-size-sm;
   margin-bottom: $spacing-sm;
-}
-
-.prediction-controls {
-  @include card;
-  @include flex-between;
-  padding: $spacing-lg;
-  gap: $spacing-md;
-
-  @include respond-to(sm) {
-    flex-direction: column;
-    align-items: flex-start;
-  }
 }
 
 .control-group {

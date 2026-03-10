@@ -60,6 +60,7 @@
 
 .tree-view {
   list-style: none;
+  padding: $spacing-xs 0;
 }
 
 .tree-item {
@@ -89,21 +90,25 @@
 .tree-toggle {
   background: none;
   border: none;
-  padding: $spacing-xs $spacing-xs;
+  padding: $spacing-xs $spacing-sm;
   cursor: pointer;
   color: $text-secondary;
   transition: all $transition-fast;
-  @include flex-center;
-  gap: $spacing-xs;
-  width: auto;
+  @include flex-between;
+  gap: $spacing-sm;
+  width: 100%;
   max-width: 100%;
   text-align: left;
   font-size: $font-size-sm;
-  border-radius: $radius-sm;
+  border-radius: $radius-md;
+  background-color: rgba($card-bg, 0.9);
+  border: 1px solid transparent;
 
   &:hover {
     color: $primary-color;
     background-color: rgba($primary-color, 0.04);
+    border-color: rgba($primary-color, 0.25);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
   }
 
   svg {
@@ -111,7 +116,7 @@
     width: 14px;
     flex-shrink: 0;
   }
-  
+
   span {
     white-space: nowrap;
   }
@@ -119,8 +124,9 @@
 
 .tree-children {
   list-style: none;
-  padding-left: $spacing-sm;
+  padding-left: $spacing-md;
   margin-top: 2px;
+  border-left: 1px dashed rgba($primary-color, 0.18);
 }
 
 .tree-item-leaf {
@@ -138,11 +144,11 @@
 .tree-leaf-button {
   background: none;
   border: none;
-  padding: $spacing-xs $spacing-xs;
+  padding: $spacing-xs $spacing-sm;
   cursor: pointer;
   color: $text-secondary;
   transition: all $transition-fast;
-  border-radius: $radius-sm;
+  border-radius: $radius-md;
   width: auto;
   max-width: 100%;
   text-align: left;
@@ -172,7 +178,9 @@
   gap: 2px;
   background: transparent;
   cursor: pointer;
-  transition: background-color $transition-fast, box-shadow $transition-fast,
+  transition:
+    background-color $transition-fast,
+    box-shadow $transition-fast,
     transform $transition-fast;
 
   &:hover {

@@ -16,7 +16,7 @@ const PredictionChart = ({
   onChangeDate,
 }: PredictionChartProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [range, setRange] = useState<RangeOption>("今日");
+  const [range] = useState<RangeOption>("今日");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("对比模式");
   const [data, setData] = useState<PredictionResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -65,9 +65,9 @@ const PredictionChart = ({
       const rect = canvas.getBoundingClientRect();
       const mouseX = event.clientX - rect.left;
 
-      // 计算图表区域
-      const chartLeft = 50;
-      const chartRight = canvas.width - 20;
+      // 计算图表区域（与 drawChart 中的常量保持一致）
+      const chartLeft = 35;
+      const chartRight = canvas.width - 10;
       const chartWidth = chartRight - chartLeft;
       const pointsCount = data.full_load.length;
       const stepX = chartWidth / (pointsCount - 1);
@@ -168,11 +168,7 @@ const PredictionChart = ({
     fetchData();
   }, [fetchData]);
 
-  const onRangeClick = (option: RangeOption) => {
-    if (option === range) return;
-    setRange(option);
-    // fetchData 由 effect 自动触发
-  };
+  // 预测范围控制已从 UI 中移除，保留 range 状态以便将来扩展（当前固定为“今日”）
 
   const onModeClick = (mode: DisplayMode) => {
     setDisplayMode(mode);
@@ -236,7 +232,7 @@ const PredictionChart = ({
                       ref={canvasRef}
                       id="prediction-chart"
                       width={900}
-                      height={220}
+                      height={260}
                       onMouseMove={handleMouseMove}
                       onMouseLeave={handleMouseLeave}
                       style={{ cursor: "crosshair" }}
@@ -276,10 +272,45 @@ const PredictionChart = ({
                 );
               })()}
           </div>
+
+          <div className={styles["chart-inline-controls"]}>
+            <div className={styles["control-group"]}>
+              <span className={styles["control-label"]}>显示模式</span>
+              <div className={styles["control-buttons"]}>
+                {(["对比模式", "仅全开", "仅节能"] as DisplayMode[]).map(
+                  (mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      className={
+                        styles["control-btn"] +
+                        " " +
+                        (displayMode === mode
+                          ? styles["control-btn-active"]
+                          : "")
+                      }
+                      onClick={() => onModeClick(mode)}
+                    >
+                      {mode}
+                    </button>
+                  ),
+                )}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className={styles["control-btn"]}
+              disabled={loading}
+              onClick={fetchData}
+            >
+              {loading ? "计算中…" : "重新计算预测"}
+            </button>
+          </div>
           <div
             className={styles["time-axis"]}
             // 与 canvas 中 CHART_LEFT / CHART_RIGHT_MARGIN 一致，使时间刻度与描点在 X 轴上对齐
-            style={{ paddingLeft: 50, paddingRight: 20 }}
+            style={{ paddingLeft: 35, paddingRight: 10 }}
           >
             {data?.labels?.length
               ? data.labels.map((label) => <span key={label}>{label}</span>)
@@ -412,74 +443,6 @@ const PredictionChart = ({
           </div>
         </div>
 
-        <div className={styles["prediction-controls"]}>
-          <div className={styles["control-group"]}>
-            <span className={styles["control-label"]}>预测范围</span>
-            <div className={styles["control-buttons"]}>
-              {(["今日", "未来3天", "未来7天"] as RangeOption[]).map(
-                (option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    className={
-                      styles["control-btn"] +
-                      " " +
-                      (range === option ? styles["control-btn-active"] : "")
-                    }
-                    onClick={() => onRangeClick(option)}
-                  >
-                    {option}
-                  </button>
-                ),
-              )}
-            </div>
-          </div>
-
-          <div className={styles["control-group"]}>
-            <span className={styles["control-label"]}>显示模式</span>
-            <div className={styles["control-buttons"]}>
-              {(["对比模式", "仅全开", "仅节能"] as DisplayMode[]).map(
-                (mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    className={
-                      styles["control-btn"] +
-                      " " +
-                      (displayMode === mode ? styles["control-btn-active"] : "")
-                    }
-                    onClick={() => onModeClick(mode)}
-                  >
-                    {mode}
-                  </button>
-                ),
-              )}
-            </div>
-          </div>
-
-          <div className={styles["control-group"]}>
-            <span className={styles["control-label"]}>更新频率</span>
-            <select
-              className={styles["control-select"]}
-              defaultValue="每小时更新"
-              aria-label="选择预测数据更新频率"
-            >
-              <option>实时更新</option>
-              <option>每小时更新</option>
-              <option>每6小时更新</option>
-              <option>每日更新</option>
-            </select>
-          </div>
-
-          <button
-            type="button"
-            className={styles["control-btn"]}
-            disabled={loading}
-            onClick={fetchData}
-          >
-            {loading ? "计算中…" : "重新计算预测"}
-          </button>
-        </div>
       </section>
     );
   } catch (err) {
@@ -499,9 +462,9 @@ function drawChart(
   const width = canvas.width;
   const height = canvas.height;
 
-  // 常量：与下方时间轴的左右 padding 对齐
-  const CHART_LEFT = 50;
-  const CHART_RIGHT_MARGIN = 20;
+  // 常量：与下方时间轴的左右 padding 对齐（尽量贴边，只为 Y 轴刻度预留少量空间）
+  const CHART_LEFT = 35;
+  const CHART_RIGHT_MARGIN = 10;
 
   // 清除画布
   ctx.clearRect(0, 0, width, height);
