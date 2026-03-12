@@ -86,8 +86,12 @@ export interface ClusterStats {
 
 export interface PredictionResponse {
   labels: string[];
+  // 主曲线：某一天的实际负载或基准负载
   full_load: number[];
+  // 对比曲线：节能方案或预测负载
   energy_saving: number[];
+  // 历史同期平均负载（可选）
+  history_avg?: number[];
   strategy: {
     sleep_periods: string;
     running_nodes: string;
@@ -224,6 +228,8 @@ export interface DatePredictionResponse {
   labels: string[];
   predicted_loads: (number | null)[];
   suggested_nodes: (number | null)[];
+  actual_loads?: (number | null)[];
+  history_avg_loads?: (number | null)[];
   utilization: number[];
   energy_saving: number[];
   strategy: {
@@ -253,7 +259,11 @@ export async function fetchPredictionForDate(
 ): Promise<DatePredictionResponse> {
   const response = await apiClient.get<DatePredictionResponse>(
     "/api/predict-date",
-    { params: { date, range } },
+    {
+      params: { date, range },
+      // LSTM 预测可能较慢，单次请求延长超时时间
+      timeout: 60000,
+    },
   );
   return response.data;
 }

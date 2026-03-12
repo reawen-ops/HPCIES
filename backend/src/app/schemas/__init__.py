@@ -93,6 +93,10 @@ class DatePredictionResponse(BaseModel):
     labels: List[str]
     predicted_loads: List[float | None]
     suggested_nodes: List[int | None]
+    # 实际负载（目标日期每个小时的 CPU 核时使用量），可能存在缺失值
+    actual_loads: List[float | None] | None = None
+    # 历史同期平均负载（按小时聚合的历史平均值）
+    history_avg_loads: List[float | None] | None = None
     utilization: List[float]
     energy_saving: List[float]
     strategy: dict

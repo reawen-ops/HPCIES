@@ -69,7 +69,7 @@
   color: $text-secondary;
   transition: color $transition-fast;
   @include flex-center;
-  gap: $spacing-xs;
+  gap: 4px;
 
   &:hover {
     color: $primary-color;
@@ -81,8 +81,8 @@
   }
 
   svg {
-    font-size: 12px;
-    width: 14px;
+    font-size: 11px;
+    width: 12px;
     flex-shrink: 0;
   }
 }

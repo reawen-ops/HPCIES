@@ -591,80 +591,129 @@ def predict_date(
     total_nodes = int(profile_row["node_count"])
     core_per_node = int(profile_row["core_per_node"])
 
-    # 获取目标日期前 24 小时的历史数据
-    start_time = target_date - timedelta(hours=24)
-    end_time = target_date - timedelta(hours=1)
-    
-    cur.execute(
-        """
-        SELECT ts, cpu_load 
-        FROM historical_usage 
-        WHERE user_id = ? AND ts >= ? AND ts <= ?
-        ORDER BY ts
-        """,
-        (
-            user["id"],
-            start_time.strftime("%Y-%m-%d %H:%M:%S"),
-            end_time.strftime("%Y-%m-%d %H:%M:%S"),
-        ),
-    )
-    
-    history_rows = cur.fetchall()
-    
-    if len(history_rows) < 24:
-        raise HTTPException(
-            status_code=400,
-            detail=f"历史数据不足，需要 24 小时数据，当前只有 {len(history_rows)} 小时",
+    # 使用单步滚动方式进行 24 小时预测，以便和 test_hpc_api.py 的逻辑一致
+    labels: list[str] = []
+    predicted_loads: list[float | None] = []
+    suggested_nodes_list: list[int | None] = []
+
+    for hour in range(24):
+        # 当前要预测的精准时间点（目标日期从 00:00 到 23:00）
+        target_predict_time = target_date + timedelta(hours=hour)
+        labels.append(target_predict_time.strftime("%H:%M"))
+
+        # 截取前 24 小时的历史数据
+        start_dt = target_predict_time - timedelta(hours=24)
+        end_dt = target_predict_time - timedelta(hours=1)
+
+        cur.execute(
+            """
+            SELECT ts, cpu_load 
+            FROM historical_usage 
+            WHERE user_id = ? AND ts >= ? AND ts <= ?
+            ORDER BY ts
+            """,
+            (
+                user["id"],
+                start_dt.strftime("%Y-%m-%d %H:%M:%S"),
+                end_dt.strftime("%Y-%m-%d %H:%M:%S"),
+            ),
         )
+        history_rows = cur.fetchall()
 
-    # 提取历史负载数据
-    history_24h = [float(row["cpu_load"]) for row in history_rows[:24]]
-    last_timestamp = history_rows[23]["ts"]
+        if len(history_rows) != 24:
+            # 历史数据不足时，用 None 占位，前端可自行处理
+            predicted_loads.append(None)
+            suggested_nodes_list.append(None)
+            continue
 
-    # 调用 LSTM API 进行预测
-    try:
-        predictions = predict_24h_load(history_24h, last_timestamp, predict_hours=24)
-    except LSTMPredictionError as e:
-        raise HTTPException(status_code=503, detail=f"预测服务暂时不可用: {str(e)}")
+        history_24h = [float(row["cpu_load"]) for row in history_rows[:24]]
+        last_timestamp = history_rows[23]["ts"]
 
-    # 解析预测结果
-    labels = []
-    predicted_loads = []
-    suggested_nodes_list = []
-    
-    # 验证预测结果格式
-    if not predictions or len(predictions) == 0:
-        raise HTTPException(status_code=503, detail="预测服务返回空结果")
-    
-    # 生成时间标签（从目标日期的 00:00 开始）
-    for i, pred in enumerate(predictions):
-        # 计算预测时间点
-        pred_time = target_date + timedelta(hours=i)
-        labels.append(pred_time.strftime("%H:%M"))
-        
-        # 提取预测负载（兼容不同的字段名）
-        if isinstance(pred, dict):
-            predicted_load = pred.get("predicted_load") or pred.get("load") or pred.get("value", 0)
-            suggested_nodes = pred.get("suggested_nodes") or pred.get("nodes", 1)
+        try:
+            preds = predict_24h_load(history_24h, last_timestamp, predict_hours=1)
+        except LSTMPredictionError as e:
+            raise HTTPException(
+                status_code=503, detail=f"预测服务暂时不可用: {str(e)}"
+            )
+
+        if not preds:
+            predicted_loads.append(None)
+            suggested_nodes_list.append(None)
+            continue
+
+        first_pred = preds[0]
+        if isinstance(first_pred, dict):
+            predicted_load = (
+                first_pred.get("predicted_load")
+                or first_pred.get("load")
+                or first_pred.get("value", 0)
+            )
+            suggested_nodes = first_pred.get("suggested_nodes") or first_pred.get(
+                "nodes", 1
+            )
         else:
-            # 如果是简单数值
-            predicted_load = float(pred)
+            predicted_load = float(first_pred)
             suggested_nodes = max(1, int(predicted_load / core_per_node))
-        
+
         predicted_loads.append(float(predicted_load))
         suggested_nodes_list.append(int(suggested_nodes))
 
     # 计算利用率（全开模式）
     total_cores = total_nodes * core_per_node
     utilization = []
-    for load in predicted_loads:
+    # 将 None 视为 0 参与利用率和后续分析的计算
+    numeric_predicted_loads: list[float] = [
+        float(load) if load is not None else 0.0 for load in predicted_loads
+    ]
+
+    for load in numeric_predicted_loads:
         util = (load / total_cores * 100) if total_cores > 0 else 0
         utilization.append(min(100.0, max(0.0, util)))
 
-    # 计算节能模式曲线
+    # 计算节能模式曲线（基于预测负载）
     energy_saving = calculate_energy_saving_curve(
-        predicted_loads, total_nodes, core_per_node
+        numeric_predicted_loads, total_nodes, core_per_node
     )
+
+    # 计算目标日期实际负载（若已有历史数据，则可用于与预测对比）
+    actual_loads: list[float | None] | None = None
+    try:
+        cur.execute(
+            """
+            SELECT CAST(STRFTIME('%H', ts) AS INTEGER) AS hour, AVG(cpu_load) AS load
+            FROM historical_usage
+            WHERE user_id = ? AND DATE(ts) = ?
+            GROUP BY hour
+            ORDER BY hour
+            """,
+            (user["id"], target_date.strftime("%Y-%m-%d")),
+        )
+        day_rows = cur.fetchall()
+        if day_rows:
+            hour_map = {int(r["hour"]): float(r["load"]) for r in day_rows if r["load"] is not None}
+            actual_loads = [hour_map.get(h) for h in range(24)]
+    except Exception:
+        actual_loads = None
+
+    # 计算历史同期平均负载（按小时聚合，便于与预测结果对比）
+    history_avg_loads: list[float | None] | None = None
+    try:
+        cur.execute(
+            """
+            SELECT CAST(STRFTIME('%H', ts) AS INTEGER) AS hour, AVG(cpu_load) AS load
+            FROM historical_usage
+            WHERE user_id = ?
+            GROUP BY hour
+            ORDER BY hour
+            """,
+            (user["id"],),
+        )
+        avg_rows = cur.fetchall()
+        if avg_rows:
+            avg_map = {int(r["hour"]): float(r["load"]) for r in avg_rows if r["load"] is not None}
+            history_avg_loads = [avg_map.get(h) for h in range(24)]
+    except Exception:
+        history_avg_loads = None
 
     # 使用 DeepSeek AI 分析预测数据，生成智能建议
     from app.services.deepseek_service import analyze_prediction_data
@@ -672,7 +721,7 @@ def predict_date(
     try:
         analysis = analyze_prediction_data(
             date=date,
-            predicted_loads=predicted_loads,
+            predicted_loads=numeric_predicted_loads,
             utilization=utilization,
             total_nodes=total_nodes,
             core_per_node=core_per_node,
@@ -683,15 +732,19 @@ def predict_date(
     except Exception as e:
         # 如果 AI 分析失败，使用默认值
         print(f"AI 分析失败: {str(e)}")
-        strategy = generate_strategy_info(predicted_loads, total_nodes)
-        effects = calculate_effects(predicted_loads, total_nodes, core_per_node)
-        impact = calculate_impact(predicted_loads)
+        strategy = generate_strategy_info(numeric_predicted_loads, total_nodes)
+        effects = calculate_effects(
+            numeric_predicted_loads, total_nodes, core_per_node
+        )
+        impact = calculate_impact(numeric_predicted_loads)
 
     return DatePredictionResponse(
         date=date,
         labels=labels,
         predicted_loads=predicted_loads,
         suggested_nodes=suggested_nodes_list,
+        actual_loads=actual_loads,
+        history_avg_loads=history_avg_loads,
         utilization=utilization,
         energy_saving=energy_saving,
         strategy=strategy,
