@@ -1,206 +1,112 @@
-# HPCIES Backend
+# HPCIES 后端（FastAPI + SQLite）
 
-HPC 智能节能调度系统后端服务
+本目录是 **HPC 智能节能调度系统** 的后端服务，基于 FastAPI 构建，负责：
 
-## 技术栈
+- 用户认证与会话管理
+- 历史负载数据 CSV 导入与清洗
+- 对接外部 LSTM 预测服务，按日期做 24 小时单步滚动预测
+- 调用 DeepSeek 大模型分析预测结果，生成节能策略 / 负载特征 / 任务影响
+- 提供节点矩阵、预测曲线和 AI 对话的 REST API 给前端使用
 
-- FastAPI 0.128.0
-- SQLite 数据库
-- Pydantic 数据验证
-- Pandas 数据处理
-- Requests HTTP 客户端
+完整接口与结构说明请参考：
 
-## 快速开始
+- `docs/API.md`：接口文档
+- `docs/STRUCTURE.md`：项目结构说明
+- `docs/FLOW.md`：主要业务流程说明
 
-### 1. 安装依赖
+---
+
+## 环境准备
+
+- Python ≥ 3.10
+- 推荐在虚拟环境中安装依赖：
 
 ```bash
 cd backend
+python -m venv .venv
+.venv\Scripts\activate        # Windows
+# 或 source .venv/bin/activate  # Linux / macOS
+
 pip install -r requirements.txt
 ```
 
-### 2. 配置环境变量
+---
 
-复制 `.env.example` 为 `.env` 并根据需要修改：
+## 配置（环境变量 / `.env`）
+
+后端使用 `pydantic-settings` 读取配置，支持 `.env` 文件。常用配置项包括（实际字段以 `app/core/config.py` 中 `Settings` 为准）：
+
+- `APP_TITLE`：应用标题（默认已设置）
+- `APP_VERSION`：版本号
+- `DATABASE_URL`：SQLite 路径，默认指向 `src/hpcies.sqlite3`
+- `CORS_ORIGINS`：允许访问的前端域名，逗号分隔
+- `DEEPSEEK_API_KEY`：DeepSeek 大模型 API 密钥
+- `DEEPSEEK_BASE_URL`：DeepSeek API 基础地址
+
+在开发环境下，可以在 `backend/.env` 中配置，例如：
+
+```env
+DEEPSEEK_API_KEY=sk-xxxx
+DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+CORS_ORIGINS=http://localhost:5173
+```
+
+> 注意：`main.py` 所在目录为 `backend/src`，`Settings` 已配置从上一级的 `.env` 读取。
+
+---
+
+## 启动后端服务
+
+在虚拟环境已激活、依赖安装完成后：
 
 ```bash
-cp .env.example .env
+cd backend/src
+uvicorn main:app --reload
 ```
 
-主要配置项：
-- `LSTM_API_URL`: LSTM 预测 API 地址
-- `CORS_ORIGINS`: 允许的前端域名（逗号分隔）
+默认监听：`http://127.0.0.1:8000`
 
-### 3. 启动服务
+前端通过 `http://127.0.0.1:8000/api/...` 访问后端接口。
 
-```bash
-cd src
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
+---
 
-服务将在 `http://localhost:8000` 启动
+## 核心功能概览
 
-### 4. 访问 API 文档
+- **认证与用户**
+  - 注册、登录、登出、获取当前用户信息（`/api/auth/*`）
+  - 使用 PBKDF2-SHA256 存储密码，Session token 24 小时有效
 
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
+- **历史数据与预测**
+  - 上传 CSV 历史数据（`/api/upload-history`），写入 `historical_usage`
+  - 获取历史数据日期树（`/api/history/tree`）
+  - 配置节点数与每节点核心数（`/api/config`）
+  - 指定日期 24 小时滚动预测（`/api/predict-date`），对接 LSTM 服务并返回：
+    - 实际负载 / 历史平均 / 预测负载
+    - 节能策略（休眠时段 + 节点分布）
+    - 负载特征与任务影响分析
 
-## 项目结构
+- **节能节点矩阵**
+  - 节能策略中的三类节点数量（必须运行 / 待休眠 / 休眠）会写入 `node_states`
+  - 前端通过 `/api/nodes` 获取并绘制节点矩阵
 
-```
-backend/
-├── src/
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── middleware/      # 中间件
-│   │   │   └── routes/          # API 路由
-│   │   │       ├── auth.py      # 认证相关
-│   │   │       └── others.py    # 其他业务接口
-│   │   ├── core/
-│   │   │   ├── config.py        # 配置管理
-│   │   │   └── db.py            # 数据库连接
-│   │   ├── crud/                # 数据库操作
-│   │   ├── models/              # 数据模型
-│   │   ├── schemas/             # Pydantic 模型
-│   │   ├── services/            # 业务逻辑
-│   │   │   └── lstm_service.py  # LSTM API 调用
-│   │   └── utils/               # 工具函数
-│   │       └── security.py      # 安全相关
-│   ├── main.py                  # 应用入口
-│   └── hpcies.sqlite3           # SQLite 数据库
-├── requirements.txt             # Python 依赖
-└── .env.example                 # 环境变量示例
-```
+- **AI 对话（DeepSeek）**
+  - 多会话管理：`/api/chat/sessions`、`/api/chat/history`
+  - 发送消息并调用 DeepSeek：`/api/chat/message`
+    - 可附带 `context_date`，自动将当日预测与统计数据总结为系统提示，提供给大模型
+  - 支持删除单个会话：`DELETE /api/chat/sessions/{session_id}`
 
-## 核心功能
+更详细的字段说明和流程图，请查看 `docs/API.md` 和 `docs/FLOW.md`。
 
-### 1. 用户认证
+---
 
-- 注册：`POST /api/auth/register`
-- 登录：`POST /api/auth/login`
-- 登出：`POST /api/auth/logout`
-- 获取用户信息：`GET /api/auth/me`
+## 数据存储
 
-### 2. 数据管理
+默认使用 SQLite 数据库 `backend/src/hpcies.sqlite3`，表结构由 `app/core/db.py:init_db()` 负责创建与轻量迁移，包含：
 
-- 上传历史数据：`POST /api/upload-history`
-  - 支持 CSV 格式
-  - 自动推断集群配置
-  - 格式 1：日期、小时、CPU核时使用量
-  - 格式 2：时间戳、负载值
-
-### 3. 预测功能
-
-- 获取指定日期预测：`GET /api/predict-date?date=YYYY-MM-DD`
-  - 调用 LSTM API 获取 24 小时预测
-  - 计算节能模式曲线
-  - 生成节能策略建议
-  - 评估节能效果和任务影响
-
-- 单点预测：`POST /api/predict-load`
-  - 基于前 24 小时数据预测下一小时
-
-### 4. 集群监控
-
-- 获取统计信息：`GET /api/stats`
-- 获取节点矩阵：`GET /api/nodes`
-- 获取历史数据树：`GET /api/history/tree`
-
-### 5. AI 对话
-
-- 获取聊天历史：`GET /api/chat/history`
-- 发送消息：`POST /api/chat/message`
-
-## LSTM API 集成
-
-系统集成了外部 LSTM 预测服务，用于负载预测。
-
-### API 请求格式
-
-```json
-{
-  "history_24h": [10.5, 12.3, 8.7, ...],
-  "last_timestamp": "2025-12-01 23:00:00",
-  "predict_hours": 24
-}
-```
-
-### API 响应格式
-
-```json
-{
-  "predictions": [
-    {
-      "timestamp": "2025-12-02 00:00:00",
-      "predicted_load": 15.6,
-      "suggested_nodes": 8
-    },
-    ...
-  ]
-}
-```
-
-### 错误处理
-
-- 超时：30 秒后返回降级结果（简单平均）
-- 连接失败：返回 503 错误
-- 响应格式错误：返回 503 错误
-
-## 测试
-
-当前仓库未内置自动化测试用例（如需添加，可使用 `pytest`/前端测试框架自行扩展）。
-
-## 数据库
-
-使用 SQLite 数据库，主要表结构：
-
-- `users`: 用户信息
-- `sessions`: 会话管理
-- `user_profile`: 用户配置
-- `historical_usage`: 历史使用数据
-- `node_states`: 节点状态
-- `chat_messages`: 聊天记录
-- `cluster_stats`: 集群统计
-- `prediction_points`: 预测数据点
-
-## 安全性
-
-- 密码使用 PBKDF2-SHA256 哈希存储
-- Session token 24 小时过期
-- CORS 配置可限制访问来源
-- SQL 注入防护（参数化查询）
-
-## 开发建议
-
-1. 生产环境务必修改 `CORS_ORIGINS` 限制访问来源
-2. 定期清理过期 session
-3. 考虑添加 Redis 缓存预测结果
-4. 监控 LSTM API 调用频率和响应时间
-5. 添加日志记录和错误追踪
-
-## 常见问题
-
-### Q: LSTM API 调用失败怎么办？
-
-A: 系统会自动降级到简单平均算法，确保基本功能可用。检查：
-- 网络连接是否正常
-- API URL 是否正确
-- API 服务是否在线
-
-### Q: 上传 CSV 失败？
-
-A: 检查 CSV 格式：
-- 编码为 UTF-8
-- 包含必需的列（日期、小时、CPU核时使用量）
-- 数据类型正确（数值列不含非数字字符）
-
-### Q: 预测数据不准确？
-
-A: 可能原因：
-- 历史数据不足（需要至少 24 小时）
-- 历史数据质量差（缺失值、异常值）
-- LSTM 模型需要重新训练
-
-## 许可证
-
-MIT License
+- `users`：用户信息
+- `sessions`：登录会话（token）
+- `user_profile`：节点数 / 每节点核心数 / 历史数据标记
+- `historical_usage`：历史负载时间序列
+- `node_states`：节点矩阵状态（running/to_sleep/sleeping）
+- `chat_sessions` / `chat_messages`：AI 对话会话与消息
+- `prediction_points`：早期 demo 用的静态预测数据（目前主要用于兼容老接口）
