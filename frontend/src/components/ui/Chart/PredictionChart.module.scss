@@ -12,7 +12,7 @@
   padding: $spacing-xxl;
   background: linear-gradient(to bottom, #ffffff, #f8fafc);
   border: 1px solid #e5e7eb;
-  
+
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(59, 130, 246, 0.12);
@@ -58,7 +58,7 @@
   border-radius: $radius-lg;
   border: 1px solid #e5e7eb;
   transition: all $transition-base;
-  
+
   &:hover {
     background-color: rgba(255, 255, 255, 1);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -78,6 +78,10 @@
 
   &.color-saving {
     background: linear-gradient(135deg, #3b82f6, #2563eb);
+  }
+
+  &.color-closed {
+    background: linear-gradient(135deg, #f97316, #f97316);
   }
 }
 
@@ -153,12 +157,12 @@
   font-size: $font-size-xs;
   font-weight: $font-weight-medium;
   padding: $spacing-md $spacing-xxl 0;
-  
+
   span {
     min-width: 40px;
     text-align: center;
-    
-    &:nth-child(4n+1) {
+
+    &:nth-child(4n + 1) {
       color: $text-primary;
       font-weight: $font-weight-bold;
     }
@@ -297,11 +301,11 @@ input[type="date"] {
   background-color: white;
   transition: all $transition-base;
   cursor: pointer;
-  
+
   &:hover {
     border-color: $primary-light;
   }
-  
+
   &:focus {
     outline: none;
     border-color: $primary-color;

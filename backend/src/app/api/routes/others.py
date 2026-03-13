@@ -7,6 +7,8 @@ import email.utils
 import pandas as pd
 import requests
 from datetime import datetime
+import re
+import math
 
 from app.core.db import get_connection
 from app.schemas import (
@@ -54,6 +56,18 @@ def _normalize_ai_response(text: str) -> str:
       empty_streak = 0
       normalized_lines.append(line.rstrip())
   return "\n".join(normalized_lines)
+
+
+def _parse_nodes_str(value: object) -> int | None:
+  """
+  解析 DeepSeek 返回的节点数量字段，如：
+  - "12 个 (40%)" -> 12
+  """
+  if not value:
+    return None
+  s = str(value)
+  m = re.search(r"(\d+)\s*个", s)
+  return int(m.group(1)) if m else None
 
 
 # reuse the get_current_user definition from auth
@@ -193,6 +207,35 @@ def get_chat_sessions(
         for r in rows
     ]
     return ChatSessionsResponse(sessions=sessions)
+
+
+@router.delete("/chat/sessions/{session_id}")
+def delete_chat_session(
+    session_id: int,
+    conn: DbConn = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """删除指定会话及其消息（仅允许删除自己的会话）"""
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id FROM chat_sessions WHERE id = ? AND user_id = ?",
+        (session_id, user["id"]),
+    )
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="会话不存在或无权限删除")
+
+    # 显式删除，避免 SQLite 未开启 foreign_keys 时 ON DELETE CASCADE 不生效
+    cur.execute(
+        "DELETE FROM chat_messages WHERE session_id = ? AND user_id = ?",
+        (session_id, user["id"]),
+    )
+    cur.execute(
+        "DELETE FROM chat_sessions WHERE id = ? AND user_id = ?",
+        (session_id, user["id"]),
+    )
+    conn.commit()
+    return {"success": True}
 
 
 @router.get("/chat/history", response_model=ChatHistoryResponse)
@@ -737,6 +780,78 @@ def predict_date(
             numeric_predicted_loads, total_nodes, core_per_node
         )
         impact = calculate_impact(numeric_predicted_loads)
+
+    # === 由 DeepSeek 给出节点数量建议，并据此重建 node_states（NodeMatrix 的唯一数据源） ===
+    # 强约束：三类数量之和必须等于 total_nodes，百分比之和必须等于 100%
+    try:
+        running_cnt = _parse_nodes_str((strategy or {}).get("running_nodes"))
+        to_sleep_cnt = _parse_nodes_str((strategy or {}).get("to_sleep_nodes"))
+        sleeping_cnt = _parse_nodes_str((strategy or {}).get("sleeping_nodes"))
+
+        # 若 DeepSeek 没给出可解析的数量，则不覆盖 node_states（保持既有状态）
+        if running_cnt is not None and to_sleep_cnt is not None:
+            # sleeping_cnt 若缺失则用剩余补齐
+            if sleeping_cnt is None:
+                sleeping_cnt = max(0, total_nodes - running_cnt - to_sleep_cnt)
+
+            # 归一化到合法范围
+            running_cnt = max(0, min(total_nodes, running_cnt))
+            to_sleep_cnt = max(0, min(total_nodes - running_cnt, to_sleep_cnt))
+            sleeping_cnt = max(0, total_nodes - running_cnt - to_sleep_cnt)
+
+            # 业务约束：待休眠比例必须 >= 5%
+            min_to_sleep = int(math.ceil(total_nodes * 0.05)) if total_nodes > 0 else 0
+            if to_sleep_cnt < min_to_sleep:
+                need = min_to_sleep - to_sleep_cnt
+                # 优先从 sleeping 挪到 to_sleep，不够再从 running 挪
+                take_from_sleeping = min(need, sleeping_cnt)
+                sleeping_cnt -= take_from_sleeping
+                to_sleep_cnt += take_from_sleeping
+                need -= take_from_sleeping
+                if need > 0:
+                    take_from_running = min(need, running_cnt)
+                    running_cnt -= take_from_running
+                    to_sleep_cnt += take_from_running
+
+            # 计算百分比，最后一项用剩余避免四舍五入导致 >100%
+            if total_nodes > 0:
+                running_pct = int(round(running_cnt / total_nodes * 100))
+                to_sleep_pct = int(round(to_sleep_cnt / total_nodes * 100))
+                sleeping_pct = max(0, 100 - running_pct - to_sleep_pct)
+            else:
+                running_pct = to_sleep_pct = sleeping_pct = 0
+
+            # 覆盖策略字段，确保前端展示与 node_states 一致
+            strategy = dict(strategy or {})
+            strategy["running_nodes"] = f"{running_cnt} 个 ({running_pct}%)"
+            strategy["to_sleep_nodes"] = f"{to_sleep_cnt} 个 ({to_sleep_pct}%)"
+            strategy["sleeping_nodes"] = f"{sleeping_cnt} 个 ({sleeping_pct}%)"
+
+            # 重建 node_states（NodeMatrix 使用这张表）
+            cur.execute("DELETE FROM node_states WHERE user_id = ?", (user["id"],))
+            node_id = 1
+            for _ in range(running_cnt):
+                cur.execute(
+                    "INSERT INTO node_states (user_id, node_id, status) VALUES (?, ?, 'running')",
+                    (user["id"], node_id),
+                )
+                node_id += 1
+            for _ in range(to_sleep_cnt):
+                cur.execute(
+                    "INSERT INTO node_states (user_id, node_id, status) VALUES (?, ?, 'to_sleep')",
+                    (user["id"], node_id),
+                )
+                node_id += 1
+            for _ in range(sleeping_cnt):
+                cur.execute(
+                    "INSERT INTO node_states (user_id, node_id, status) VALUES (?, ?, 'sleeping')",
+                    (user["id"], node_id),
+                )
+                node_id += 1
+            conn.commit()
+    except Exception:
+        # 不阻塞预测接口
+        pass
 
     return DatePredictionResponse(
         date=date,

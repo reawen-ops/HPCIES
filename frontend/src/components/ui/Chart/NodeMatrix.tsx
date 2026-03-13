@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { fetchNodeMatrix, type NodeMatrixResponse } from "../../../api";
 import styles from "./NodeMatrix.module.scss";
 
-const NodeMatrix = () => {
+interface NodeMatrixProps {
+  refreshTrigger?: number;
+}
+
+const NodeMatrix = ({ refreshTrigger }: NodeMatrixProps) => {
   const [data, setData] = useState<NodeMatrixResponse | null>(null);
 
   useEffect(() => {
@@ -11,7 +15,7 @@ const NodeMatrix = () => {
       .catch(() => {
         // 后端不可用时保持为空
       });
-  }, []);
+  }, [refreshTrigger]);
 
   return (
     <div className={styles["node-matrix"]}>

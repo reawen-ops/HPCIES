@@ -172,6 +172,10 @@ export async function fetchChatSessions(): Promise<ChatSessionsResponse> {
   return response.data;
 }
 
+export async function deleteChatSession(sessionId: number): Promise<void> {
+  await apiClient.delete(`/api/chat/sessions/${sessionId}`);
+}
+
 export async function fetchChatHistory(
   sessionId?: number,
 ): Promise<ChatHistoryResponse> {

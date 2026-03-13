@@ -116,7 +116,7 @@
     width: 14px;
     flex-shrink: 0;
   }
-
+  
   span {
     white-space: nowrap;
   }
@@ -131,6 +131,10 @@
 
 .tree-item-leaf {
   padding: 1px 0;
+}
+
+.session-item {
+  position: relative;
 }
 
 .session-list-empty {
@@ -197,6 +201,45 @@
     );
     border: 1px solid rgba($primary-color, 0.4);
   }
+}
+
+.session-delete-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.06);
+  color: #ef4444;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.98);
+  transition:
+    opacity $transition-fast,
+    transform $transition-fast,
+    background-color $transition-fast,
+    border-color $transition-fast;
+
+  svg {
+    font-size: 12px;
+  }
+}
+
+.session-item:hover .session-delete-button {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+.session-delete-button:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.4);
 }
 
 .session-title {

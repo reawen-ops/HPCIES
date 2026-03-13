@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import styles from "./Sidebar.module.scss";
 import { BsDatabaseFill } from "react-icons/bs";
 import { FaFolder, FaHistory, FaComments } from "react-icons/fa";
+import { FaTrashAlt } from "react-icons/fa";
 import {
   fetchHistoryTree,
   fetchChatSessions,
+  deleteChatSession,
   type HistoryTreeResponse,
   type ChatSessionsResponse,
 } from "../../../api";
@@ -30,6 +32,7 @@ const Sidebar = ({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const hasInitializedSessionsRef = useRef(false);
+  const deletingSessionIdsRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
     fetchHistoryTree()
@@ -153,20 +156,60 @@ const Sidebar = ({
 
       return (
         <li key={session.id} className={styles["tree-item-leaf"]}>
-          <button
-            type="button"
-            className={`${styles["session-button"]} ${isSelected ? styles["selected"] : ""}`}
-            onClick={() => {
-              setSelectedSession(session.id);
-              onSelectSession?.(session.id);
-            }}
-            title={session.title}
-          >
-            <div className={styles["session-title"]}>{session.title}</div>
-            <div className={styles["session-meta"]}>
-              {timeStr} · {session.message_count}条消息
-            </div>
-          </button>
+          <div className={styles["session-item"]}>
+            <button
+              type="button"
+              className={`${styles["session-button"]} ${isSelected ? styles["selected"] : ""}`}
+              onClick={() => {
+                setSelectedSession(session.id);
+                onSelectSession?.(session.id);
+              }}
+              title={session.title}
+            >
+              <div className={styles["session-title"]}>{session.title}</div>
+              <div className={styles["session-meta"]}>
+                {timeStr} · {session.message_count}条消息
+              </div>
+            </button>
+            <button
+              type="button"
+              className={styles["session-delete-button"]}
+              aria-label={`删除对话：${session.title}`}
+              title="删除对话"
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (deletingSessionIdsRef.current.has(session.id)) return;
+                const ok = window.confirm("确定要删除该对话吗？该操作不可恢复。");
+                if (!ok) return;
+
+                deletingSessionIdsRef.current.add(session.id);
+                // optimistic UI
+                setSessions((prev) => {
+                  if (!prev) return prev;
+                  return {
+                    ...prev,
+                    sessions: prev.sessions.filter((s) => s.id !== session.id),
+                  };
+                });
+                if (selectedSession === session.id) {
+                  setSelectedSession(null);
+                  onSelectSession?.(null);
+                }
+                try {
+                  await deleteChatSession(session.id);
+                } catch {
+                  // 如果删除失败，回滚为重新拉取
+                } finally {
+                  deletingSessionIdsRef.current.delete(session.id);
+                  fetchChatSessions()
+                    .then(setSessions)
+                    .catch(() => setSessions(null));
+                }
+              }}
+            >
+              <FaTrashAlt />
+            </button>
+          </div>
         </li>
       );
     });

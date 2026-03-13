@@ -245,7 +245,7 @@ const PredictionChart = ({
                 <div className={styles["legend-item"]}>
                   <span
                     className={
-                      styles["legend-color"] + " " + styles["color-saving"]
+                      styles["legend-color"] + " " + styles["color-closed"]
                     }
                   />
                   <span>节能预测</span>

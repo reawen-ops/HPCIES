@@ -225,8 +225,12 @@ def analyze_prediction_data(
 1. **节能策略**（strategy）：
    - sleep_periods: 建议休眠时段，必须基于上述低负载时段（利用率<40%），选择连续2小时以上的时段。格式：HH:00-HH:00, HH:00-HH:00。如果没有合适的低负载时段，返回"无明显低负载时段"
    - running_nodes: 建议保持运行的节点数（格式：X 个 (Y%)）
-   - to_sleep_nodes: 建议休眠的节点数（格式：X 个 (Y%)）
-   - sleeping_nodes: 可完全关闭的节点数（格式：X 个 (Y%)）
+   - to_sleep_nodes: 建议待休眠的节点数（格式：X 个 (Y%)）
+   - sleeping_nodes: 建议休眠/关闭的节点数（格式：X 个 (Y%)）
+   **硬性约束**：
+     - running_nodes + to_sleep_nodes + sleeping_nodes 的“X”之和必须等于总节点数 {total_nodes}
+     - 三个百分比 Y% 之和必须等于 100%
+     - to_sleep_nodes 的比例必须 **>= 5%**（即：to_sleep_nodes 的 X 必须 >= ceil({total_nodes} * 0.05)）
 
 2. **负载特征**（effects）：
    - avg_utilization: 当前平均利用率（如：{avg_util:.1f}%）

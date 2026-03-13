@@ -17,6 +17,7 @@ const MainPage = () => {
   );
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
+  const [nodeMatrixRefreshTrigger, setNodeMatrixRefreshTrigger] = useState(0);
 
   useEffect(() => {
     // 进入首页时刷新 profile，用于决定是否显示 Welcome（只在未配置/未上传时显示）
@@ -67,8 +68,11 @@ const MainPage = () => {
             <PredictionChart
               selectedDate={selectedDate}
               onChangeDate={setSelectedDate}
+              onPredictionUpdated={() =>
+                setNodeMatrixRefreshTrigger((prev) => prev + 1)
+              }
             />
-            <NodeMatrix />
+            <NodeMatrix refreshTrigger={nodeMatrixRefreshTrigger} />
             <ChatContainer
               selectedSessionId={selectedSessionId}
               contextDate={selectedDate}
