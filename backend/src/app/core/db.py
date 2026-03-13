@@ -112,43 +112,80 @@ def init_db() -> None:
         """
     )
 
-    # 创建聊天记录表（用于持久化对话）
+    # 创建对话会话表（用于管理多个对话）
     cur.execute(
         """
-        CREATE TABLE IF NOT EXISTS chat_messages (
+        CREATE TABLE IF NOT EXISTS chat_sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
-            author TEXT NOT NULL CHECK (author IN ('user', 'ai')),
-            text TEXT NOT NULL,
+            title TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
         """
     )
 
-    # 轻量迁移：兼容旧版本 chat_messages(id, author, text)
+    # 创建聊天记录表（用于持久化对话）
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            author TEXT NOT NULL CHECK (author IN ('user', 'ai')),
+            text TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    # 轻量迁移：兼容旧版本 chat_messages(id, user_id, author, text)
     try:
         cur.execute("PRAGMA table_info(chat_messages)")
         cols = [r[1] for r in cur.fetchall()]
-        if "user_id" not in cols:
+        if "session_id" not in cols:
+            # 为每个用户创建一个默认会话
+            cur.execute("SELECT DISTINCT user_id FROM chat_messages")
+            user_ids = [r[0] for r in cur.fetchall()]
+            
+            from app.utils.security import _now_iso
+            now = _now_iso()
+            
+            for uid in user_ids:
+                cur.execute(
+                    "INSERT INTO chat_sessions (user_id, title, created_at, updated_at) VALUES (?, '历史对话', ?, ?)",
+                    (uid, now, now)
+                )
+                session_id = cur.lastrowid
+                cur.execute("UPDATE chat_messages SET session_id = ? WHERE user_id = ?", (session_id, uid))
+            
+            # 重建表结构
             cur.execute(
                 """
-                CREATE TABLE IF NOT EXISTS chat_messages_v2 (
+                CREATE TABLE IF NOT EXISTS chat_messages_v3 (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id INTEGER NOT NULL,
                     user_id INTEGER NOT NULL,
                     author TEXT NOT NULL CHECK (author IN ('user', 'ai')),
                     text TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE,
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
                 """
             )
             cur.execute(
                 """
-                INSERT INTO chat_messages_v2 (id, user_id, author, text)
-                SELECT id, 1 as user_id, author, text FROM chat_messages
-                """
+                INSERT INTO chat_messages_v3 (id, session_id, user_id, author, text, created_at)
+                SELECT id, COALESCE(session_id, 1), user_id, author, text, ? FROM chat_messages
+                """,
+                (now,)
             )
             cur.execute("DROP TABLE chat_messages")
-            cur.execute("ALTER TABLE chat_messages_v2 RENAME TO chat_messages")
+            cur.execute("ALTER TABLE chat_messages_v3 RENAME TO chat_messages")
     except Exception:
         pass
 
