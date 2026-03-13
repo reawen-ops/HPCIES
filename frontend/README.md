@@ -34,7 +34,7 @@ HPCIES（HPC Intelligent Energy Saving）是一个智能化的高性能计算集
 
 ## 📁 项目结构
 
-```
+```ts
 frontend/
 ├── public/                 # 静态资源
 │   └── ies.svg
@@ -90,6 +90,12 @@ frontend/
 ├── tsconfig.node.json
 └── vite.config.ts         # Vite 配置
 ```
+
+更多详细说明：
+
+- 前端 API 调用说明：`frontend/docs/API.md`
+- 前端项目结构说明：`frontend/docs/STRUCTURE.md`
+- 前端主要流程说明：`frontend/docs/FLOW.md`
 
 ## 🚀 快速开始
 
