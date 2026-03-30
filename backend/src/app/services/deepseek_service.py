@@ -211,7 +211,7 @@ def analyze_prediction_data(
 - 平均负载：{avg_load:.1f} 核
 - 最高负载：{max_load:.1f} 核
 - 最低负载：{min_load:.1f} 核
-- 平均利用率：{avg_util:.1f}%
+- 平均利用率：{avg_util:.1f}%，即假设所有节点都处于开机状态，每小时的核使用率 = 每小时的核使用量 / (总计算能力 * 1小时)，平均利用率 = 24小时的核使用量 / 24
 
 **负载分布**：
 - 低负载时段（<40%）：{len(low_load_hours)} 小时，具体时段：{', '.join([f'{h:02d}:00' for h in low_load_hours]) if low_load_hours else '无'}
@@ -234,7 +234,7 @@ def analyze_prediction_data(
 
 2. **负载特征**（effects）：
    - avg_utilization: 当前平均利用率（如：{avg_util:.1f}%）
-   - optimized_utilization: 节能模式下的预期利用率（关闭部分节点后）
+   - optimized_utilization: 节能模式下的预期利用率（关闭部分节点后），即假设用户严格按照你所提议的节点策略配置，每小时核使用率 = 每小时的核使用量 / （开机节点数 * 每个节点的核数 * 1小时），平均利用率 = 24小时的核使用量 / 24
    - load_stability: 负载稳定性（稳定/波动较大）
    - peak_utilization: 峰值利用率
    - min_utilization: 最低利用率
