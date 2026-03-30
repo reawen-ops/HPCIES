@@ -1,46 +1,28 @@
 import { useEffect, useRef, useState } from "react";
 import styles from "./Sidebar.module.scss";
-import { BsDatabaseFill } from "react-icons/bs";
-import { FaFolder, FaHistory, FaComments } from "react-icons/fa";
+import { FaHistory, FaComments } from "react-icons/fa";
 import { FaTrashAlt } from "react-icons/fa";
 import {
-  fetchHistoryTree,
   fetchChatSessions,
   deleteChatSession,
-  type HistoryTreeResponse,
   type ChatSessionsResponse,
 } from "../../../api";
 
-interface OpenState {
-  [key: string]: boolean;
-}
-
 interface SidebarProps {
-  onSelectDate?: (date: string) => void;
   onSelectSession?: (sessionId: number | null) => void;
   refreshTrigger?: number;
 }
 
 const Sidebar = ({
-  onSelectDate,
   onSelectSession,
   refreshTrigger,
 }: SidebarProps) => {
-  const [tree, setTree] = useState<HistoryTreeResponse | null>(null);
   const [sessions, setSessions] = useState<ChatSessionsResponse | null>(null);
-  const [open, setOpen] = useState<OpenState>({});
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const hasInitializedSessionsRef = useRef(false);
   const deletingSessionIdsRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
-    fetchHistoryTree()
-      .then(setTree)
-      .catch(() => {
-        setTree(null);
-      });
-
     fetchChatSessions()
       .then((data) => {
         setSessions(data);
@@ -56,83 +38,6 @@ const Sidebar = ({
         setSessions(null);
       });
   }, [refreshTrigger, onSelectSession]);
-
-  const toggleKey = (key: string) => {
-    setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const renderTree = () => {
-    if (!tree || tree.years.length === 0) {
-      return (
-        <li className={styles["tree-item"]}>
-          <FaFolder />
-          暂无数据
-        </li>
-      );
-    }
-
-    return tree.years.map((year) => {
-      const yearKey = `y-${year.year}`;
-      const yearOpen = open[yearKey] ?? false;
-      return (
-        <li key={yearKey} className={styles["tree-item"]}>
-          <button
-            type="button"
-            onClick={() => toggleKey(yearKey)}
-            className={styles["tree-toggle"]}
-          >
-            <FaFolder />
-            <span>{year.year}年</span>
-          </button>
-          {yearOpen && (
-            <ul className={styles["tree-children"]}>
-              {year.months.map((month) => {
-                const monthKey = `${yearKey}-m-${month.month}`;
-                const monthOpen = open[monthKey] ?? false;
-                return (
-                  <li key={monthKey} className={styles["tree-item"]}>
-                    <button
-                      type="button"
-                      onClick={() => toggleKey(monthKey)}
-                      className={styles["tree-toggle"]}
-                    >
-                      <FaFolder />
-                      <span>{month.month}月</span>
-                    </button>
-                    {monthOpen && (
-                      <ul className={styles["tree-children"]}>
-                        {month.days.map((day) => {
-                          const dayLabel = day.date.split("-")[2];
-                          const isSelected = selectedDate === day.date;
-                          return (
-                            <li
-                              key={day.date}
-                              className={styles["tree-item-leaf"]}
-                            >
-                              <button
-                                type="button"
-                                className={`${styles["tree-leaf-button"]} ${isSelected ? styles["selected"] : ""}`}
-                                onClick={() => {
-                                  setSelectedDate(day.date);
-                                  onSelectDate?.(day.date);
-                                }}
-                              >
-                                {dayLabel}日
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </li>
-      );
-    });
-  };
 
   const renderSessions = () => {
     if (!sessions || sessions.sessions.length === 0) {
@@ -217,16 +122,6 @@ const Sidebar = ({
 
   return (
     <div className={styles.sidebar}>
-      <div className={styles["sidebar-section"]}>
-        <div className={styles["sidebar-title"]}>
-          <BsDatabaseFill />
-          数据详情
-        </div>
-        <ul className={styles["tree-view"]} id="data-tree">
-          {renderTree()}
-        </ul>
-      </div>
-
       <div className={styles["sidebar-section"]}>
         <div className={styles["sidebar-title"]}>
           <FaHistory />

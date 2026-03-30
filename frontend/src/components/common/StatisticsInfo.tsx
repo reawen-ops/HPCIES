@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { fetchClusterStats, type ClusterStats } from "../../api";
 import styles from "./StatisticsInfo.module.scss";
 
-const StatisticsInfo = () => {
+type StatisticsInfoProps = {
+  avgUtilizationPercent?: number | null;
+};
+
+const StatisticsInfo = ({ avgUtilizationPercent }: StatisticsInfoProps) => {
   const [stats, setStats] = useState<ClusterStats | null>(null);
 
   useEffect(() => {
@@ -30,7 +34,7 @@ const StatisticsInfo = () => {
       <div className={styles["stat-item"]}>
         <div className={styles["stat-title"]}>平均利用率</div>
         <div className={styles["stat-value"]}>
-          {stats ? `${stats.avg_utilization.toFixed(1)}%` : "--"}
+          {avgUtilizationPercent == null ? "--" : `${avgUtilizationPercent.toFixed(1)}%`}
         </div>
       </div>
       <div className={styles["stat-item"]}>

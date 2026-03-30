@@ -28,11 +28,15 @@ type DisplayMode = "全部" | "仅实际" | "仅节能";
 interface PredictionChartProps {
   selectedDate: string;
   onChangeDate: (date: string) => void;
+  onPredictionUpdated?: () => void;
+  onDailyPredictedCoreHoursChange?: (dailyPredictedCoreHours: number | null) => void;
 }
 
 const PredictionChart = ({
   selectedDate,
   onChangeDate,
+  onPredictionUpdated,
+  onDailyPredictedCoreHoursChange,
 }: PredictionChartProps) => {
   const [range] = useState<RangeOption>("今日");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("全部");
@@ -51,8 +55,16 @@ const PredictionChart = ({
       if (!resp.labels || resp.labels.length === 0) {
         setError("该日期暂无预测数据，请确保已上传足够的历史数据");
         setData(null);
+        onDailyPredictedCoreHoursChange?.(null);
         return;
       }
+
+      const predictedLoads = (resp.predicted_loads as (number | null)[] | undefined) ?? [];
+      const dailyPredictedCoreHours = predictedLoads.reduce<number>(
+        (sum, v) => sum + (v == null ? 0 : v),
+        0,
+      );
+      onDailyPredictedCoreHoursChange?.(dailyPredictedCoreHours);
 
       setData({
         labels: resp.labels ?? [],
@@ -88,6 +100,8 @@ const PredictionChart = ({
           emergency_response: resp.impact?.emergency_response ?? "数据待获取",
         },
       });
+
+      onPredictionUpdated?.();
     } catch (err: any) {
       console.error(err);
 
@@ -107,10 +121,16 @@ const PredictionChart = ({
         setError("获取预测失败，请稍后重试");
       }
       setData(null);
+      onDailyPredictedCoreHoursChange?.(null);
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, range]);
+  }, [
+    selectedDate,
+    range,
+    onPredictionUpdated,
+    onDailyPredictedCoreHoursChange,
+  ]);
 
   // 日期或范围变化时重新拉取
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Header from "../../components/layout/Header/Header";
 import Sidebar from "../../components/layout/Sidebar/Sidebar";
 import ScrollPanel from "../../components/layout/Scroll/ScrollPanel";
@@ -18,6 +18,11 @@ const MainPage = () => {
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [nodeMatrixRefreshTrigger, setNodeMatrixRefreshTrigger] = useState(0);
+  const [dailyPredictedCoreHours, setDailyPredictedCoreHours] = useState<number | null>(null);
+
+  const handlePredictionUpdated = useCallback(() => {
+    setNodeMatrixRefreshTrigger((prev) => prev + 1);
+  }, []);
 
   useEffect(() => {
     // 进入首页时刷新 profile，用于决定是否显示 Welcome（只在未配置/未上传时显示）
@@ -53,24 +58,33 @@ const MainPage = () => {
     }
   };
 
+  const avgUtilizationPercent =
+    dailyPredictedCoreHours != null &&
+    profile?.node_count != null &&
+    profile?.core_per_node != null &&
+    profile.node_count > 0 &&
+    profile.core_per_node > 0
+      ? (dailyPredictedCoreHours /
+          (profile.node_count * profile.core_per_node * 24)) *
+        100
+      : null;
+
   return (
     <div>
       <Header />
       <div className={styles["main-container"]}>
         <Sidebar 
-          onSelectDate={setSelectedDate} 
           onSelectSession={setSelectedSessionId}
           refreshTrigger={sidebarRefreshTrigger}
         />
         <div className={styles["content-area"]}>
           <ScrollPanel>
-            <StatisticsInfo />
+            <StatisticsInfo avgUtilizationPercent={avgUtilizationPercent} />
             <PredictionChart
               selectedDate={selectedDate}
               onChangeDate={setSelectedDate}
-              onPredictionUpdated={() =>
-                setNodeMatrixRefreshTrigger((prev) => prev + 1)
-              }
+              onPredictionUpdated={handlePredictionUpdated}
+              onDailyPredictedCoreHoursChange={setDailyPredictedCoreHours}
             />
             <NodeMatrix refreshTrigger={nodeMatrixRefreshTrigger} />
             <ChatContainer
