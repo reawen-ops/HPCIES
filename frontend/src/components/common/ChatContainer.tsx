@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useReducer,
+  type KeyboardEvent,
+} from "react";
 import { FaPaperPlane, FaRobot } from "react-icons/fa";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -12,54 +18,115 @@ import styles from "./ChatContainer.module.scss";
 
 interface ChatContainerProps {
   selectedSessionId?: number | null;
-  onChatUpdated?: () => void; // 用于通知外部刷新会话列表等
-  contextDate?: string | null; // 当前页面选中的预测日期
+  onChatUpdated?: () => void;
+  contextDate?: string | null;
 }
+
+// 定义状态类型
+interface ChatState {
+  messages: ChatMessage[];
+  currentSessionId: number | null;
+  showWelcome: boolean;
+  isLoadingHistory: boolean;
+}
+
+// 定义 action 类型
+type ChatAction =
+  | { type: "RESET" }
+  | {
+      type: "SET_HISTORY";
+      payload: { sessionId: number; messages: ChatMessage[] };
+    }
+  | { type: "SET_MESSAGES"; payload: ChatMessage[] }
+  | { type: "SET_SESSION_ID"; payload: number | null }
+  | { type: "SET_LOADING_HISTORY"; payload: boolean }
+  | { type: "SET_SHOW_WELCOME"; payload: boolean };
+
+// reducer 函数
+const chatReducer = (state: ChatState, action: ChatAction): ChatState => {
+  switch (action.type) {
+    case "RESET":
+      return {
+        messages: [],
+        currentSessionId: null,
+        showWelcome: true,
+        isLoadingHistory: false,
+      };
+    case "SET_HISTORY":
+      return {
+        ...state,
+        currentSessionId: action.payload.sessionId,
+        messages: action.payload.messages,
+        showWelcome: action.payload.messages.length === 0,
+        isLoadingHistory: false,
+      };
+    case "SET_MESSAGES":
+      return {
+        ...state,
+        messages: action.payload,
+      };
+    case "SET_SESSION_ID":
+      return {
+        ...state,
+        currentSessionId: action.payload,
+      };
+    case "SET_LOADING_HISTORY":
+      return {
+        ...state,
+        isLoadingHistory: action.payload,
+      };
+    case "SET_SHOW_WELCOME":
+      return {
+        ...state,
+        showWelcome: action.payload,
+      };
+    default:
+      return state;
+  }
+};
 
 const ChatContainer = ({
   selectedSessionId,
   onChatUpdated,
   contextDate,
 }: ChatContainerProps) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [state, dispatch] = useReducer(chatReducer, {
+    messages: [],
+    currentSessionId: null,
+    showWelcome: true,
+    isLoadingHistory: false,
+  });
+
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
-  const [showWelcome, setShowWelcome] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    // 初始加载/切换会话：
-    // - 如果 selectedSessionId 为 null，则表示“新对话”，不加载历史，显示欢迎页
-    // - 否则拉取指定 session 的历史；未指定则取最新会话
     if (selectedSessionId == null) {
-      setMessages([]);
-      setCurrentSessionId(null);
-      setShowWelcome(true);
-      setIsLoadingHistory(false);
+      dispatch({ type: "RESET" });
       return;
     }
 
-    setIsLoadingHistory(true);
+    dispatch({ type: "SET_LOADING_HISTORY", payload: true });
     fetchChatHistory(selectedSessionId)
       .then((data: ChatHistoryResponse) => {
-        setCurrentSessionId(data.session_id);
-        setMessages(data.messages);
-        setShowWelcome(data.messages.length === 0);
+        dispatch({
+          type: "SET_HISTORY",
+          payload: {
+            sessionId: data.session_id,
+            messages: data.messages,
+          },
+        });
       })
       .catch(() => {
-        // 后端不可用时保持为空，显示欢迎消息
-        setShowWelcome(true);
-      })
-      .finally(() => {
-        setIsLoadingHistory(false);
+        dispatch({ type: "SET_LOADING_HISTORY", payload: false });
+        dispatch({ type: "SET_SHOW_WELCOME", payload: true });
       });
   }, [selectedSessionId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [state.messages]);
 
   const handleSend = () => {
     const trimmed = inputValue.trim();
@@ -67,28 +134,35 @@ const ChatContainer = ({
 
     setInputValue("");
     setIsLoading(true);
-    setShowWelcome(false);
+    dispatch({ type: "SET_SHOW_WELCOME", payload: false });
 
     sendChatMessage(
       trimmed,
-      currentSessionId || undefined,
+      state.currentSessionId || undefined,
       contextDate ?? undefined,
     )
       .then((data: ChatHistoryResponse) => {
-        setCurrentSessionId(data.session_id);
-        setMessages(data.messages);
+        dispatch({
+          type: "SET_HISTORY",
+          payload: {
+            sessionId: data.session_id,
+            messages: data.messages,
+          },
+        });
         onChatUpdated?.();
       })
       .catch((error) => {
         console.error("发送消息失败:", error);
-        // 显示错误消息
         const errorMessage: ChatMessage = {
           id: Date.now(),
           author: "ai",
           text: "抱歉，发送消息失败，请检查网络连接后重试。",
           created_at: new Date().toISOString(),
         };
-        setMessages((prev) => [...prev, errorMessage]);
+        dispatch({
+          type: "SET_MESSAGES",
+          payload: [...state.messages, errorMessage],
+        });
       })
       .finally(() => {
         setIsLoading(false);
@@ -109,8 +183,8 @@ const ChatContainer = ({
         HPC能源管家AI助手
       </div>
 
-      <div className={styles["chat-messages"]} aria-busy={isLoadingHistory}>
-        {showWelcome && messages.length === 0 && !isLoading && (
+      <div className={styles["chat-messages"]}>
+        {state.showWelcome && state.messages.length === 0 && !isLoading && (
           <div className={styles["welcome-message"]}>
             <FaRobot className={styles["welcome-icon"]} />
             <h3>向HPC能源管家AI助手提问</h3>
@@ -123,7 +197,7 @@ const ChatContainer = ({
             </ul>
           </div>
         )}
-        {messages.map((message) => (
+        {state.messages.map((message) => (
           <div
             key={message.id}
             className={
@@ -145,7 +219,7 @@ const ChatContainer = ({
             )}
           </div>
         ))}
-        {(isLoading || isLoadingHistory) && (
+        {(isLoading || state.isLoadingHistory) && (
           <div className={styles.message + " " + styles["message-ai"]}>
             <div className={styles["typing-indicator"]}>
               <span></span>
