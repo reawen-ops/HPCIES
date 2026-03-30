@@ -33,7 +33,7 @@
   border-radius: $radius-xl;
   line-height: 1.5;
   font-size: $font-size-base;
-  // 让换行符在聊天气泡中生效，保留多行和空行，提升可读性
+  // 用户消息默认按纯文本展示；AI 消息会在内部用 markdown 容器渲染
   white-space: pre-wrap;
 
   &-user {
@@ -48,6 +48,75 @@
     background-color: $secondary-color;
     color: $text-primary;
     border-bottom-left-radius: $radius-sm;
+  }
+}
+
+.message-content {
+  white-space: normal;
+
+  p {
+    margin: 0.25em 0;
+  }
+
+  ul,
+  ol {
+    margin: 0.25em 0;
+    padding-left: 1.25em;
+  }
+
+  li {
+    margin: 0.15em 0;
+  }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+      monospace;
+    font-size: 0.95em;
+    background: rgba(0, 0, 0, 0.06);
+    padding: 0.1em 0.25em;
+    border-radius: 6px;
+  }
+
+  pre {
+    margin: 0.5em 0;
+    padding: 0.75em;
+    overflow: auto;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  pre code {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    font-size: 0.9em;
+    white-space: pre;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.5em 0;
+    font-size: 0.95em;
+  }
+
+  th,
+  td {
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    padding: 0.35em 0.5em;
+    vertical-align: top;
+  }
+
+  th {
+    background: rgba(0, 0, 0, 0.05);
+    font-weight: $font-weight-medium;
+  }
+
+  blockquote {
+    margin: 0.5em 0;
+    padding: 0.25em 0.75em;
+    border-left: 3px solid rgba(0, 0, 0, 0.25);
+    color: $text-secondary;
   }
 }
 

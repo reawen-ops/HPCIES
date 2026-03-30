@@ -44,18 +44,37 @@ def _normalize_ai_response(text: str) -> str:
   if not isinstance(text, str):
     return str(text)
 
+  # 注意：为了支持前端 Markdown 渲染，这里不要破坏 Markdown 语义（尤其是代码块与行尾空格）。
   s = text.replace("\r\n", "\n").replace("\r", "\n").strip()
   lines = s.split("\n")
   normalized_lines: list[str] = []
   empty_streak = 0
+  in_fence = False
+
   for line in lines:
+    stripped = line.lstrip()
+    # fenced code block：``` / ```lang
+    if stripped.startswith("```"):
+      in_fence = not in_fence
+      normalized_lines.append(line)
+      empty_streak = 0
+      continue
+
+    if in_fence:
+      # 代码块内原样保留（含空行、尾随空格等）
+      normalized_lines.append(line)
+      empty_streak = 0
+      continue
+
     if line.strip() == "":
       empty_streak += 1
       if empty_streak <= 2:
         normalized_lines.append("")
-    else:
-      empty_streak = 0
-      normalized_lines.append(line.rstrip())
+      continue
+
+    empty_streak = 0
+    normalized_lines.append(line)
+
   return "\n".join(normalized_lines)
 
 

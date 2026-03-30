@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { FaPaperPlane, FaPaperclip, FaRobot } from "react-icons/fa";
+import { FaPaperPlane, FaRobot } from "react-icons/fa";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   fetchChatHistory,
   sendChatMessage,
@@ -67,7 +69,11 @@ const ChatContainer = ({
     setIsLoading(true);
     setShowWelcome(false);
 
-    sendChatMessage(trimmed, currentSessionId || undefined, contextDate ?? undefined)
+    sendChatMessage(
+      trimmed,
+      currentSessionId || undefined,
+      contextDate ?? undefined,
+    )
       .then((data: ChatHistoryResponse) => {
         setCurrentSessionId(data.session_id);
         setMessages(data.messages);
@@ -94,12 +100,6 @@ const ChatContainer = ({
       event.preventDefault();
       handleSend();
     }
-  };
-
-  const handleUploadClick = () => {
-    alert(
-      "文件上传功能演示。在实际系统中，这里将允许用户上传CSV文件进行分析。",
-    );
   };
 
   return (
@@ -134,7 +134,15 @@ const ChatContainer = ({
                 : styles["message-ai"])
             }
           >
-            {message.text}
+            {message.author === "ai" ? (
+              <div className={styles["message-content"]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {message.text}
+                </ReactMarkdown>
+              </div>
+            ) : (
+              message.text
+            )}
           </div>
         ))}
         {(isLoading || isLoadingHistory) && (
