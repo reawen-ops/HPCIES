@@ -150,14 +150,6 @@ const ChatContainer = ({
       </div>
 
       <div className={styles["chat-input-area"]}>
-        <button
-          type="button"
-          className={styles["upload-btn"]}
-          title="上传文件"
-          onClick={handleUploadClick}
-        >
-          <FaPaperclip />
-        </button>
         <input
           type="text"
           className={styles["chat-input"]}
