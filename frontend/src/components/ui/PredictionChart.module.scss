@@ -1,5 +1,5 @@
-@use "../../../assets/styles/mixins" as *;
-@use "../../../assets/styles/variables" as *;
+@use "../../assets/styles/mixins" as *;
+@use "../../assets/styles/variables" as *;
 
 .prediction-section {
   @include flex-column;
