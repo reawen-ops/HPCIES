@@ -43,7 +43,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<MeResponse["profile"] | null>(null);
   const logoutTimerRef = useRef<number | null>(null);
 
-  // 优化：包裹在 useCallback 中以保持引用稳定
   const clearLogoutTimer = useCallback(() => {
     if (logoutTimerRef.current != null) {
       window.clearTimeout(logoutTimerRef.current);
@@ -51,7 +50,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // 优化：包裹在 useCallback 中，依赖稳定的 clearLogoutTimer
   const scheduleAutoLogout = useCallback(
     (expiresAt: string) => {
       clearLogoutTimer();
@@ -66,7 +64,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [clearLogoutTimer],
   );
 
-  // 优化：包裹在 useCallback 中，依赖稳定的 scheduleAutoLogout 和 setUser
   const applySession = useCallback(
     (session: AuthSessionResponse) => {
       const expiresAtIso = new Date(
@@ -84,39 +81,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [scheduleAutoLogout],
   );
 
-  const refreshMe = useCallback(async () => {
+  const fetchUserData = useCallback(async (): Promise<{
+    user: StoredAuth["user"] | null;
+    profile: MeResponse["profile"] | null;
+  }> => {
     const stored = readStoredAuth();
     if (!stored || isExpired(stored.expiresAt)) {
       clearStoredAuth();
-      setUser(null);
-      setProfile(null);
-      return;
+      return { user: null, profile: null };
     }
     try {
       const me = await authMe();
-      setUser(me.user);
-      setProfile(me.profile);
       scheduleAutoLogout(stored.expiresAt);
+      return { user: me.user, profile: me.profile };
     } catch {
       clearStoredAuth();
-      setUser(null);
-      setProfile(null);
+      return { user: null, profile: null };
     }
   }, [scheduleAutoLogout]);
 
+  // 保留 refreshMe 作为公开方法，但内部使用 fetchUserData
+  const refreshMe = useCallback(async () => {
+    const { user: newUser, profile: newProfile } = await fetchUserData();
+    setUser(newUser);
+    setProfile(newProfile);
+  }, [fetchUserData]);
+
+  // Effect 中只做初始化，不直接触发状态更新链
   useEffect(() => {
-    // 修复：移除同步 setState，依赖初始状态 true
-    refreshMe().finally(() => setIsLoading(false));
-    return () => clearLogoutTimer();
-  }, [refreshMe, clearLogoutTimer]);
+    let isMounted = true;
+
+    const initializeAuth = async () => {
+      const { user: newUser, profile: newProfile } = await fetchUserData();
+      if (isMounted) {
+        setUser(newUser);
+        setProfile(newProfile);
+        setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
+
+    return () => {
+      isMounted = false;
+      clearLogoutTimer();
+    };
+  }, [fetchUserData, clearLogoutTimer]);
 
   const login = useCallback(
     async (username: string, password: string) => {
       const session = await authLogin({ username, password });
       applySession(session);
-      await refreshMe();
+      const { user: newUser, profile: newProfile } = await fetchUserData();
+      setUser(newUser);
+      setProfile(newProfile);
     },
-    [applySession, refreshMe],
+    [applySession, fetchUserData],
   );
 
   const register = useCallback(async (username: string, password: string) => {
