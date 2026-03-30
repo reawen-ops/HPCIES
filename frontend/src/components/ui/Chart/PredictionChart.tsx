@@ -23,7 +23,7 @@ ChartJS.register(
 );
 
 type RangeOption = "今日" | "未来3天" | "未来7天";
-type DisplayMode = "全部" | "仅实际" | "仅历史平均" | "仅节能";
+type DisplayMode = "全部" | "仅实际" | "仅节能";
 
 interface PredictionChartProps {
   selectedDate: string;
@@ -130,7 +130,6 @@ const PredictionChart = ({
     const labels = data.labels ?? [];
 
     const showActual = displayMode === "全部" || displayMode === "仅实际";
-    const showHistory = displayMode === "全部" || displayMode === "仅历史平均";
     const showPredicted = displayMode === "全部" || displayMode === "仅节能";
 
     return {
@@ -144,16 +143,6 @@ const PredictionChart = ({
           tension: 0.3,
           fill: true,
           hidden: !showActual,
-        },
-        {
-          label: "历史平均",
-          data: data.history_avg ?? [],
-          borderColor: "#3b82f6",
-          backgroundColor: "rgba(59, 130, 246, 0.12)",
-          borderDash: [4, 3],
-          tension: 0.3,
-          fill: false,
-          hidden: !showHistory,
         },
         {
           label: "节能预测",
@@ -237,14 +226,6 @@ const PredictionChart = ({
                 <div className={styles["legend-item"]}>
                   <span
                     className={
-                      styles["legend-color"] + " " + styles["color-saving"]
-                    }
-                  />
-                  <span>历史平均</span>
-                </div>
-                <div className={styles["legend-item"]}>
-                  <span
-                    className={
                       styles["legend-color"] + " " + styles["color-closed"]
                     }
                   />
@@ -285,9 +266,7 @@ const PredictionChart = ({
             <div className={styles["control-group"]}>
               <span className={styles["control-label"]}>显示模式</span>
               <div className={styles["control-buttons"]}>
-                {(
-                  ["全部", "仅实际", "仅历史平均", "仅节能"] as DisplayMode[]
-                ).map((mode) => (
+                {(["全部", "仅实际", "仅节能"] as DisplayMode[]).map((mode) => (
                   <button
                     key={mode}
                     type="button"
@@ -336,7 +315,7 @@ const PredictionChart = ({
                       <span
                         className={`${styles["status-dot"]} ${styles["status-dot-running"]}`}
                       />
-                      必须运行
+                      运行
                     </span>
                     <span className={styles["status-value"]}>
                       {data?.strategy?.running_nodes ?? "0 个（0%）"}
@@ -347,7 +326,7 @@ const PredictionChart = ({
                       <span
                         className={`${styles["status-dot"]} ${styles["status-dot-to-sleep"]}`}
                       />
-                      待休眠
+                      待机
                     </span>
                     <span className={styles["status-value"]}>
                       {data?.strategy?.to_sleep_nodes ?? "0 个（0%）"}
@@ -358,7 +337,7 @@ const PredictionChart = ({
                       <span
                         className={`${styles["status-dot"]} ${styles["status-dot-sleeping"]}`}
                       />
-                      休眠
+                      关机
                     </span>
                     <span className={styles["status-value"]}>
                       {data?.strategy?.sleeping_nodes ?? "0 个（0%）"}

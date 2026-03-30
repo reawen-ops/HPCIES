@@ -9,6 +9,7 @@ import requests
 from datetime import datetime
 import re
 import math
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from app.core.db import get_connection
 from app.schemas import (
@@ -635,9 +636,13 @@ def predict_date(
     core_per_node = int(profile_row["core_per_node"])
 
     # 使用单步滚动方式进行 24 小时预测，以便和 test_hpc_api.py 的逻辑一致
+    # 为了避免顺序调用 LSTM 导致接口长时间阻塞，这里对各小时的 LSTM 请求做并发执行
     labels: list[str] = []
-    predicted_loads: list[float | None] = []
-    suggested_nodes_list: list[int | None] = []
+    predicted_loads: list[float | None] = [None] * 24
+    suggested_nodes_list: list[int | None] = [None] * 24
+
+    # 先在单线程中预取所有小时的 24h 历史窗口，避免在多线程中使用同一个 sqlite 连接
+    history_windows: list[tuple[int, list[float], str]] = []
 
     for hour in range(24):
         # 当前要预测的精准时间点（目标日期从 00:00 到 23:00）
@@ -664,42 +669,59 @@ def predict_date(
         history_rows = cur.fetchall()
 
         if len(history_rows) != 24:
-            # 历史数据不足时，用 None 占位，前端可自行处理
-            predicted_loads.append(None)
-            suggested_nodes_list.append(None)
+            # 历史数据不足时，保持默认的 None，占位即可
             continue
 
         history_24h = [float(row["cpu_load"]) for row in history_rows[:24]]
         last_timestamp = history_rows[23]["ts"]
+        history_windows.append((hour, history_24h, last_timestamp))
 
-        try:
-            preds = predict_24h_load(history_24h, last_timestamp, predict_hours=1)
-        except LSTMPredictionError as e:
+    # 并发调用 LSTM 接口，显著缩短整体等待时间
+    if history_windows:
+        max_workers = min(8, len(history_windows))
+        results_ok = 0
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_hour = {
+                executor.submit(
+                    predict_24h_load, history_24h, last_timestamp, predict_hours=1
+                ): hour
+                for (hour, history_24h, last_timestamp) in history_windows
+            }
+
+            for future in as_completed(future_to_hour):
+                hour = future_to_hour[future]
+                try:
+                    preds = future.result()
+                except LSTMPredictionError as e:
+                    # 对于单个小时的预测失败，使用 None 占位；如果全部失败，后面会统一给出 503
+                    continue
+
+                if not preds:
+                    continue
+
+                first_pred = preds[0]
+                if isinstance(first_pred, dict):
+                    predicted_load = (
+                        first_pred.get("predicted_load")
+                        or first_pred.get("load")
+                        or first_pred.get("value", 0)
+                    )
+                    suggested_nodes = first_pred.get("suggested_nodes") or first_pred.get(
+                        "nodes", 1
+                    )
+                else:
+                    predicted_load = float(first_pred)
+                    suggested_nodes = max(1, int(predicted_load / core_per_node))
+
+                predicted_loads[hour] = float(predicted_load)
+                suggested_nodes_list[hour] = int(suggested_nodes)
+                results_ok += 1
+
+        # 如果有历史窗口但所有 LSTM 调用都失败，认为预测服务不可用，快速返回 503
+        if results_ok == 0:
             raise HTTPException(
-                status_code=503, detail=f"预测服务暂时不可用: {str(e)}"
+                status_code=503, detail="预测服务暂时不可用，请稍后重试"
             )
-
-        if not preds:
-            predicted_loads.append(None)
-            suggested_nodes_list.append(None)
-            continue
-
-        first_pred = preds[0]
-        if isinstance(first_pred, dict):
-            predicted_load = (
-                first_pred.get("predicted_load")
-                or first_pred.get("load")
-                or first_pred.get("value", 0)
-            )
-            suggested_nodes = first_pred.get("suggested_nodes") or first_pred.get(
-                "nodes", 1
-            )
-        else:
-            predicted_load = float(first_pred)
-            suggested_nodes = max(1, int(predicted_load / core_per_node))
-
-        predicted_loads.append(float(predicted_load))
-        suggested_nodes_list.append(int(suggested_nodes))
 
     # 计算利用率（全开模式）
     total_cores = total_nodes * core_per_node

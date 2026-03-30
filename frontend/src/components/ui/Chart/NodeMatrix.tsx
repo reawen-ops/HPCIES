@@ -26,21 +26,21 @@ const NodeMatrix = ({ refreshTrigger }: NodeMatrixProps) => {
             className={`${styles.node} ${styles["node-running"]}`}
             aria-hidden="true"
           />
-          <span>必须运行 (绿色)</span>
+          <span>运行 (绿色)</span>
         </div>
         <div className={styles["legend-item"]}>
           <div
             className={`${styles.node} ${styles["node-sleeping"]}`}
             aria-hidden="true"
           />
-          <span>休眠 (红色)</span>
+          <span>关机 (红色)</span>
         </div>
         <div className={styles["legend-item"]}>
           <div
             className={`${styles.node} ${styles["node-to-sleep"]}`}
             aria-hidden="true"
           />
-          <span>待休眠 (黄色)</span>
+          <span>待机 (黄色)</span>
         </div>
       </div>
       <div className={styles["matrix-grid"]}>
@@ -53,10 +53,7 @@ const NodeMatrix = ({ refreshTrigger }: NodeMatrixProps) => {
           }
 
           return (
-            <div
-              key={node.node_id}
-              className={`${styles.node} ${statusClass}`}
-            >
+            <div key={node.node_id} className={`${styles.node} ${statusClass}`}>
               {node.node_id}
             </div>
           );
@@ -67,5 +64,3 @@ const NodeMatrix = ({ refreshTrigger }: NodeMatrixProps) => {
 };
 
 export default NodeMatrix;
-
-
