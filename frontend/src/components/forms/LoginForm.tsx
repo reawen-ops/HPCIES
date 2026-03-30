@@ -1,7 +1,4 @@
 import styles from "./LoginForm.module.scss";
-import { IoLogoWechat } from "react-icons/io5";
-import { FaQq } from "react-icons/fa";
-import { FaAlipay } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../../auth/AuthProvider";
@@ -90,22 +87,6 @@ const LoginForm = () => {
         >
           {submitting ? "登录中..." : "登录"}
         </button>
-
-        <div className={styles.divider + " " + styles["mt-20"]}>
-          <span>或使用以下方式登录</span>
-        </div>
-
-        <div className={styles["social-login"]}>
-          <div className={styles["social-btn"] + " " + styles.wechat}>
-            <IoLogoWechat />
-          </div>
-          <div className={styles["social-btn"] + " " + styles.qq}>
-            <FaQq />
-          </div>
-          <div className={styles["social-btn"] + " " + styles.alipay}>
-            <FaAlipay />
-          </div>
-        </div>
 
         <p className={styles["text-center"] + " " + styles["mt-20"]}>
           还没有账户？

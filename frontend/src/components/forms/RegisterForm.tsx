@@ -1,7 +1,4 @@
 import styles from "./RegisterForm.module.scss";
-import { IoLogoWechat } from "react-icons/io5";
-import { FaQq } from "react-icons/fa";
-import { FaAlipay } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../../auth/AuthProvider";
@@ -106,29 +103,6 @@ const RegisterForm = () => {
           />
         </div>
 
-        <div className={styles["form-group"]}>
-          <label className={styles["form-label"]} htmlFor="verification-code">
-            验证码
-          </label>
-          <div className={styles.verification}>
-            <input
-              type="text"
-              id="verification-code"
-              className={styles["form-control"]}
-              placeholder="请输入手机验证码"
-              required
-            />
-            <button
-              type="button"
-              className={
-                styles.btn + " " + styles["btn-secondary"] + " " + styles.button
-              }
-            >
-              获取验证码
-            </button>
-          </div>
-        </div>
-
         <button
           type="submit"
           disabled={submitting}
@@ -144,22 +118,6 @@ const RegisterForm = () => {
             {error}
           </div>
         ) : null}
-
-        <div className={styles.divider + " " + styles.mt20}>
-          <span>或使用以下方式注册</span>
-        </div>
-
-        <div className={styles["social-login"]}>
-          <div className={styles["social-btn"] + " " + styles.wechat}>
-            <IoLogoWechat />
-          </div>
-          <div className={styles["social-btn"] + " " + styles.qq}>
-            <FaQq />
-          </div>
-          <div className={styles["social-btn"] + " " + styles.alipay}>
-            <FaAlipay />
-          </div>
-        </div>
 
         <p className={styles["text-center"] + " " + styles.mt20}>
           已有账户？

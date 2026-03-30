@@ -20,15 +20,6 @@
   @include form-control;
 }
 
-.verification {
-  display: flex;
-  gap: $spacing-md;
-}
-
-.button {
-  white-space: nowrap;
-}
-
 .btn {
   @include button-base;
 
@@ -65,39 +56,6 @@
 
 .mt20 {
   margin-top: $spacing-xl;
-}
-
-.social-login {
-  @include flex-center;
-  gap: $spacing-xl;
-  margin-top: $spacing-xl;
-}
-
-.social-btn {
-  @include flex-center;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  color: white;
-  font-size: 22px;
-  cursor: pointer;
-  transition: transform $transition-base;
-
-  &:hover {
-    transform: scale(1.1);
-  }
-
-  &.wechat {
-    background-color: $wechat-color;
-  }
-
-  &.qq {
-    background-color: $qq-color;
-  }
-
-  &.alipay {
-    background-color: $alipay-color;
-  }
 }
 
 .text-center {
