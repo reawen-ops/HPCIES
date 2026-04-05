@@ -1,0 +1,24 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hpcies-backend
+    restart: unless-stopped
+    env_file:
+      - ./deploy/backend.env
+    volumes:
+      - ./data:/data
+    expose:
+      - "8000"
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hpcies-web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
