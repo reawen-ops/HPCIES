@@ -344,8 +344,9 @@ out/
 # 缓存
 .cache/
 
-# 包管理器特定
+# 包管理器特定（前端 Vite 项目需锁定依赖，故保留 frontend/package-lock.json）
 package-lock.json
+!frontend/package-lock.json
 yarn.lock
 pnpm-lock.yaml
 shrinkwrap.yaml
