@@ -1,5 +1,3 @@
-# 默认经 DaoCloud 拉取 Docker Hub 官方库镜像，避免国内直连 registry-1.docker.io 超时。
-# 海外构建可：docker compose build --build-arg BASE_REGISTRY=docker.io/library
 ARG BASE_REGISTRY=docker.m.daocloud.io/library
 FROM ${BASE_REGISTRY}/ubuntu:22.04
 
@@ -18,8 +16,16 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
 
+ARG PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+ARG PIP_TRUSTED_HOST=mirrors.aliyun.com
+
 COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
+RUN pip install --upgrade pip setuptools wheel \
+  && pip install --no-cache-dir \
+    --default-timeout=300 \
+    -i "${PIP_INDEX_URL}" \
+    --trusted-host "${PIP_TRUSTED_HOST}" \
+    -r /app/requirements.txt
 
 COPY src /app/src
 
