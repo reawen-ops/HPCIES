@@ -33,7 +33,7 @@
   border-radius: $radius-xl;
   line-height: 1.5;
   font-size: $font-size-base;
-  // 用户消息默认按纯文本展示；AI 消息会在内部用 markdown 容器渲染
+  // 用户消息默认按纯文本展示；AI消息会在内部用markdown容器渲染
   white-space: pre-wrap;
 
   &-user {
@@ -69,8 +69,9 @@
   }
 
   code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
-      monospace;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      "Courier New", monospace;
     font-size: 0.95em;
     background: rgba(0, 0, 0, 0.06);
     padding: 0.1em 0.25em;
@@ -203,7 +204,9 @@
 }
 
 @keyframes typing {
-  0%, 60%, 100% {
+  0%,
+  60%,
+  100% {
     transform: translateY(0);
     opacity: 0.7;
   }
@@ -245,12 +248,12 @@
     padding: 0;
     margin: 0;
     text-align: left;
-    
+
     li {
       padding: $spacing-sm 0;
       position: relative;
       padding-left: $spacing-lg;
-      
+
       &::before {
         content: "✓";
         position: absolute;

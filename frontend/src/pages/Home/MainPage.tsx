@@ -15,10 +15,14 @@ const MainPage = () => {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().slice(0, 10),
   );
-  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(
+    null,
+  );
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [nodeMatrixRefreshTrigger, setNodeMatrixRefreshTrigger] = useState(0);
-  const [dailyPredictedCoreHours, setDailyPredictedCoreHours] = useState<number | null>(null);
+  const [dailyPredictedCoreHours, setDailyPredictedCoreHours] = useState<
+    number | null
+  >(null);
 
   const handlePredictionUpdated = useCallback(() => {
     setNodeMatrixRefreshTrigger((prev) => prev + 1);
@@ -29,7 +33,7 @@ const MainPage = () => {
     refreshMe().catch(() => {});
   }, [refreshMe]);
 
-  // 直接在渲染阶段计算派生状态，避免在 effect 中 setState
+  // 直接在渲染阶段计算派生状态，避免在effect中setState
   const needsSetup =
     !profile ||
     profile.has_history !== 1 ||
@@ -43,10 +47,10 @@ const MainPage = () => {
   }) => {
     // 配置完成后刷新一次，让各组件用到最新配置/数据
     await refreshMe().catch(() => {});
-    
+
     // 触发侧边栏刷新树形结构
     setSidebarRefreshTrigger((prev) => prev + 1);
-    
+
     // 如果后端返回了建议的预测日期，使用它；否则选择昨天
     if (config.suggestedDate) {
       setSelectedDate(config.suggestedDate);
@@ -73,7 +77,7 @@ const MainPage = () => {
     <div>
       <Header />
       <div className={styles["main-container"]}>
-        <Sidebar 
+        <Sidebar
           onSelectSession={setSelectedSessionId}
           refreshTrigger={sidebarRefreshTrigger}
         />

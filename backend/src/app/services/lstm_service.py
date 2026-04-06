@@ -55,7 +55,7 @@ def predict_24h_load(
             settings.lstm_api_url,
             json=payload,
             headers=headers,
-            # 将单次请求超时从 30 秒降为 10 秒，以避免整体预测接口长时间卡死
+            # 将单次请求超时从30秒降为10秒，以避免整体预测接口长时间卡死
             timeout=10,
         )
 

@@ -13,10 +13,7 @@ interface SidebarProps {
   refreshTrigger?: number;
 }
 
-const Sidebar = ({
-  onSelectSession,
-  refreshTrigger,
-}: SidebarProps) => {
+const Sidebar = ({ onSelectSession, refreshTrigger }: SidebarProps) => {
   const [sessions, setSessions] = useState<ChatSessionsResponse | null>(null);
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const hasInitializedSessionsRef = useRef(false);
@@ -26,7 +23,7 @@ const Sidebar = ({
     fetchChatSessions()
       .then((data) => {
         setSessions(data);
-        // 仅在首次进入页面时自动选中最新会话，用户之后的操作（包括“新对话”）不再被覆盖
+        // 仅在首次进入页面时自动选中最新会话，用户之后的操作不再被覆盖
         if (!hasInitializedSessionsRef.current && data.sessions.length > 0) {
           const latestId = data.sessions[0].id;
           setSelectedSession(latestId);
@@ -84,7 +81,8 @@ const Sidebar = ({
               onClick={async (e) => {
                 e.stopPropagation();
                 if (deletingSessionIdsRef.current.has(session.id)) return;
-                const ok = window.confirm("确定要删除该对话吗？该操作不可恢复。");
+                const ok =
+                  window.confirm("确定要删除该对话吗？该操作不可恢复。");
                 if (!ok) return;
 
                 deletingSessionIdsRef.current.add(session.id);

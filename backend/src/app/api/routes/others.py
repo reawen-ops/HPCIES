@@ -44,7 +44,7 @@ def _normalize_ai_response(text: str) -> str:
   if not isinstance(text, str):
     return str(text)
 
-  # 注意：为了支持前端 Markdown 渲染，这里不要破坏 Markdown 语义（尤其是代码块与行尾空格）。
+  # 为了支持前端 Markdown 渲染，不要破坏Markdown语义
   s = text.replace("\r\n", "\n").replace("\r", "\n").strip()
   lines = s.split("\n")
   normalized_lines: list[str] = []
@@ -53,7 +53,6 @@ def _normalize_ai_response(text: str) -> str:
 
   for line in lines:
     stripped = line.lstrip()
-    # fenced code block：``` / ```lang
     if stripped.startswith("```"):
       in_fence = not in_fence
       normalized_lines.append(line)
@@ -89,8 +88,6 @@ def _parse_nodes_str(value: object) -> int | None:
   m = re.search(r"(\d+)\s*个", s)
   return int(m.group(1)) if m else None
 
-
-# reuse the get_current_user definition from auth
 from app.api.routes.auth import get_current_user, CurrentUser
 
 
@@ -245,7 +242,7 @@ def delete_chat_session(
     if not row:
         raise HTTPException(status_code=404, detail="会话不存在或无权限删除")
 
-    # 显式删除，避免 SQLite 未开启 foreign_keys 时 ON DELETE CASCADE 不生效
+    # 显式删除，避免SQLite未开启foreign_keys时ON DELETE CASCADE不生效
     cur.execute(
         "DELETE FROM chat_messages WHERE session_id = ? AND user_id = ?",
         (session_id, user["id"]),
@@ -356,10 +353,10 @@ def post_chat_message(
             for r in history_rows
         ]
     
-        # 格式化历史消息为 API 格式
+        # 格式化历史消息为API格式
         api_messages = format_chat_history_for_api(history_messages, max_history=10)
 
-        # 如果前端传入了 context_date（当前页面选中的预测日期），
+        # 如果前端传入了context_date当前页面选中的预测日期），
         # 则为该日期生成一段预测/统计摘要，作为额外的系统上下文消息插入到对话最前面。
         if payload.context_date:
             try:
@@ -383,7 +380,7 @@ def post_chat_message(
                     total_nodes = int(profile_row["node_count"])
                     core_per_node = int(profile_row["core_per_node"])
 
-                    # 获取目标日期前 24 小时的历史数据
+                    # 获取目标日期前24小时的历史数据
                     start_time = target_date - timedelta(hours=24)
                     end_time = target_date - timedelta(hours=1)
                     cur.execute(
@@ -461,7 +458,7 @@ def post_chat_message(
                 # 如果构造上下文失败，不影响正常对话
                 pass
     
-        # 调用 DeepSeek API
+        # 调用DeepSeek API
         try:
             ai_response_raw = chat_with_deepseek(
                 messages=api_messages,
@@ -471,7 +468,7 @@ def post_chat_message(
             )
             ai_response = _normalize_ai_response(ai_response_raw)
         except DeepSeekError as e:
-            # 如果 API 调用失败，返回错误提示
+            # 如果API调用失败，返回错误提示
             ai_response = _normalize_ai_response(
                 f"抱歉，AI 服务暂时不可用：{str(e)}"
             )
@@ -479,7 +476,7 @@ def post_chat_message(
             # 捕获其他异常
             ai_response = "处理您的请求时发生错误，请稍后重试。"
     
-        # 保存 AI 回复
+        # 保存AI回复
         cur.execute(
             "INSERT INTO chat_messages (session_id, user_id, author, text, created_at) VALUES (?, ?, 'ai', ?, ?)",
             (session_id, user["id"], ai_response, _now_iso()),
@@ -500,7 +497,7 @@ def post_chat_message(
     except HTTPException:
         raise
     except Exception as e:
-        # 让前端能在 Network 里看到具体错误 detail，便于排障
+        # 让前端能在Network里看到具体错误detail，便于排障
         raise HTTPException(status_code=500, detail=f"/api/chat/message 处理失败: {str(e)}")
 
 
@@ -577,7 +574,7 @@ def upload_history(
         max_load = max(load for _, _, load in rows)
         estimated_total_cores = int(max_load * 1.2)  # 留 20% 余量
         
-        # 假设每节点 32 核心（可根据实际情况调整）
+        # 假设每节点 32 核心（需要根据实际情况调整）
         core_per_node = 32
         estimated_nodes = max(1, estimated_total_cores // core_per_node)
         
@@ -620,7 +617,7 @@ def predict_date(
     user: dict = Depends(get_current_user),
 ) -> DatePredictionResponse:
     """
-    获取指定日期的 24 小时预测数据。
+    获取指定日期的24小时预测数据。
     
     参数:
         date: 目标日期，格式为 YYYY-MM-DD
@@ -654,13 +651,13 @@ def predict_date(
     total_nodes = int(profile_row["node_count"])
     core_per_node = int(profile_row["core_per_node"])
 
-    # 使用单步滚动方式进行 24 小时预测，以便和 test_hpc_api.py 的逻辑一致
+    # 使用单步滚动方式进行24小时预测，以便和test_hpc_api.py的逻辑一致
     # 为了避免顺序调用 LSTM 导致接口长时间阻塞，这里对各小时的 LSTM 请求做并发执行
     labels: list[str] = []
     predicted_loads: list[float | None] = [None] * 24
     suggested_nodes_list: list[int | None] = [None] * 24
 
-    # 先在单线程中预取所有小时的 24h 历史窗口，避免在多线程中使用同一个 sqlite 连接
+    # 先在单线程中预取所有小时的24h历史窗口，避免在多线程中使用同一个sqlite连接
     history_windows: list[tuple[int, list[float], str]] = []
 
     for hour in range(24):
@@ -688,14 +685,14 @@ def predict_date(
         history_rows = cur.fetchall()
 
         if len(history_rows) != 24:
-            # 历史数据不足时，保持默认的 None，占位即可
+            # 历史数据不足时，保持默认的None，占位即可
             continue
 
         history_24h = [float(row["cpu_load"]) for row in history_rows[:24]]
         last_timestamp = history_rows[23]["ts"]
         history_windows.append((hour, history_24h, last_timestamp))
 
-    # 并发调用 LSTM 接口，显著缩短整体等待时间
+    # 并发调用LSTM接口，显著缩短整体等待时间
     if history_windows:
         max_workers = min(8, len(history_windows))
         results_ok = 0
@@ -736,7 +733,7 @@ def predict_date(
                 suggested_nodes_list[hour] = int(suggested_nodes)
                 results_ok += 1
 
-        # 如果有历史窗口但所有 LSTM 调用都失败，认为预测服务不可用，快速返回 503
+        # 如果有历史窗口但所有LSTM调用都失败，认为预测服务不可用，快速返回 503
         if results_ok == 0:
             raise HTTPException(
                 status_code=503, detail="预测服务暂时不可用，请稍后重试"
@@ -745,7 +742,7 @@ def predict_date(
     # 计算利用率（全开模式）
     total_cores = total_nodes * core_per_node
     utilization = []
-    # 将 None 视为 0 参与利用率和后续分析的计算
+    # 将None视为 0 参与利用率和后续分析的计算
     numeric_predicted_loads: list[float] = [
         float(load) if load is not None else 0.0 for load in predicted_loads
     ]
@@ -799,7 +796,7 @@ def predict_date(
     except Exception:
         history_avg_loads = None
 
-    # 使用 DeepSeek AI 分析预测数据，生成智能建议
+    # 使用DeepSeek AI分析预测数据，生成智能建议
     from app.services.deepseek_service import analyze_prediction_data
     
     try:
@@ -814,7 +811,7 @@ def predict_date(
         effects = analysis.get("effects", {})
         impact = analysis.get("impact", {})
     except Exception as e:
-        # 如果 AI 分析失败，使用默认值
+        # 如果AI分析失败，使用默认值
         print(f"AI 分析失败: {str(e)}")
         strategy = generate_strategy_info(numeric_predicted_loads, total_nodes)
         effects = calculate_effects(
@@ -823,13 +820,13 @@ def predict_date(
         impact = calculate_impact(numeric_predicted_loads)
 
     # === 由 DeepSeek 给出节点数量建议，并据此重建 node_states（NodeMatrix 的唯一数据源） ===
-    # 强约束：三类数量之和必须等于 total_nodes，百分比之和必须等于 100%
+    # 三类数量之和必须等于 total_nodes，百分比之和必须等于 100%
     try:
         running_cnt = _parse_nodes_str((strategy or {}).get("running_nodes"))
         to_sleep_cnt = _parse_nodes_str((strategy or {}).get("to_sleep_nodes"))
         sleeping_cnt = _parse_nodes_str((strategy or {}).get("sleeping_nodes"))
 
-        # 若 DeepSeek 没给出可解析的数量，则不覆盖 node_states（保持既有状态）
+        # 若DeepSeek没给出可解析的数量，则不覆盖node_states（保持既有状态）
         if running_cnt is not None and to_sleep_cnt is not None:
             # sleeping_cnt 若缺失则用剩余补齐
             if sleeping_cnt is None:
@@ -854,7 +851,7 @@ def predict_date(
                     running_cnt -= take_from_running
                     to_sleep_cnt += take_from_running
 
-            # 计算百分比，最后一项用剩余避免四舍五入导致 >100%
+            # 计算百分比，最后一项用剩余避免四舍五入导致 > 100%
             if total_nodes > 0:
                 running_pct = int(round(running_cnt / total_nodes * 100))
                 to_sleep_pct = int(round(to_sleep_cnt / total_nodes * 100))
@@ -862,7 +859,7 @@ def predict_date(
             else:
                 running_pct = to_sleep_pct = sleeping_pct = 0
 
-            # 覆盖策略字段，确保前端展示与 node_states 一致
+            # 覆盖策略字段，确保前端展示与node_states一致
             strategy = dict(strategy or {})
             strategy["running_nodes"] = f"{running_cnt} 个 ({running_pct}%)"
             strategy["to_sleep_nodes"] = f"{to_sleep_cnt} 个 ({to_sleep_pct}%)"
@@ -916,7 +913,7 @@ def predict_load(
     user: dict = Depends(get_current_user),
 ) -> LoadPredictionResponse:
     """
-    基于历史 24 小时数据预测下一小时负载。
+    基于历史24小时数据预测下一小时负载。
     """
     from app.services.lstm_service import predict_24h_load, LSTMPredictionError
 
@@ -927,7 +924,7 @@ def predict_load(
         )
 
     try:
-        # 只预测未来 1 小时
+        # 只预测未来1小时
         predictions = predict_24h_load(
             payload.history_24h, payload.last_timestamp, predict_hours=1
         )

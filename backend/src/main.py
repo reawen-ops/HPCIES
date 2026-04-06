@@ -17,7 +17,6 @@ app = FastAPI(
     version=settings.app_version,
 )
 
-# register all routes defined in the package
 app.include_router(api_router)
 
 # 全局中间件
@@ -31,6 +30,6 @@ app.add_middleware(
 
 
 @app.on_event("startup")
-def on_startup() -> None:  # pragma: no cover - trivial
+def on_startup() -> None:
     """初始化数据库"""
     init_db()

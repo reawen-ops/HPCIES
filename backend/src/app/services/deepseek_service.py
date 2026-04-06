@@ -89,7 +89,7 @@ def chat_with_deepseek(
         
         result = response.json()
         
-        # 提取 AI 回复
+        # 提取AI回复
         if "choices" in result and len(result["choices"]) > 0:
             return result["choices"][0]["message"]["content"]
         else:

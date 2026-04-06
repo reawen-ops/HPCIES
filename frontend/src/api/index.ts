@@ -49,7 +49,7 @@ export async function authMe(): Promise<MeResponse> {
   return response.data;
 }
 
-// ============ 历史数据树 ============
+// 历史数据树
 
 export interface HistoryDay {
   date: string;
@@ -90,7 +90,7 @@ export interface PredictionResponse {
   full_load: number[];
   // 对比曲线：节能方案或预测负载
   energy_saving: number[];
-  // 历史同期平均负载（可选）
+  // 历史同期平均负载
   history_avg?: number[];
   strategy: {
     sleep_periods: string;
@@ -259,7 +259,7 @@ export interface DatePredictionResponse {
 
 export async function fetchPredictionForDate(
   date: string,
-  range?: string, // e.g. "今日" / "未来3天" / "未来7天"
+  range?: string,
 ): Promise<DatePredictionResponse> {
   const response = await apiClient.get<DatePredictionResponse>(
     "/api/predict-date",

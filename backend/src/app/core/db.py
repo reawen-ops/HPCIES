@@ -142,7 +142,6 @@ def init_db() -> None:
         """
     )
 
-    # 轻量迁移：兼容旧版本 chat_messages(id, user_id, author, text)
     try:
         cur.execute("PRAGMA table_info(chat_messages)")
         cols = [r[1] for r in cur.fetchall()]
@@ -190,7 +189,7 @@ def init_db() -> None:
         pass
 
     # 创建历史使用数据表，存储从 CSV 导入的时间序列
-    # 说明：历史使用数据按 user_id 隔离存储
+    # 历史使用数据按 user_id 隔离存储
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS historical_usage (

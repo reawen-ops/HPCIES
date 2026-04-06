@@ -73,7 +73,6 @@ def logout(
     return {"success": True}
 
 
-# dependency and helper definitions
 
 def get_current_user(
     conn: DbConn = Depends(get_connection),

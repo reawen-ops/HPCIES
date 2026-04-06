@@ -100,14 +100,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [scheduleAutoLogout]);
 
-  // 保留 refreshMe 作为公开方法，但内部使用 fetchUserData
+  // 保留refreshMe作为公开方法，但内部使用 fetchUserData
   const refreshMe = useCallback(async () => {
     const { user: newUser, profile: newProfile } = await fetchUserData();
     setUser(newUser);
     setProfile(newProfile);
   }, [fetchUserData]);
 
-  // Effect 中只做初始化，不直接触发状态更新链
+  // Effect中只做初始化，不直接触发状态更新链
   useEffect(() => {
     let isMounted = true;
 
