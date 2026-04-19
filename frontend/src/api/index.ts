@@ -17,7 +17,7 @@ export interface MeResponse {
   profile: {
     node_count: number | null;
     core_per_node: number | null;
-    has_history: number; // 0/1
+    has_history: number; // 0或1
     updated_at?: string;
   };
 }
@@ -194,7 +194,7 @@ export async function sendChatMessage(
   const response = await apiClient.post<ChatHistoryResponse>(
     "/api/chat/message",
     { text, session_id: sessionId, context_date: contextDate },
-    // DeepSeek 调用可能较慢，避免前端 10s 超时导致“发送失败”
+    // DeepSeek调用较慢，为避免前端10s超时导致发送失败，这里设置为60s
     { timeout: 60000 },
   );
   return response.data;
@@ -265,7 +265,7 @@ export async function fetchPredictionForDate(
     "/api/predict-date",
     {
       params: { date, range },
-      // LSTM 预测可能较慢，单次请求延长超时时间
+      // LSTM预测较慢，单次请求延长超时时间为60s
       timeout: 60000,
     },
   );
