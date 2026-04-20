@@ -1,4 +1,4 @@
-"""DeepSeek AI 服务集成模块"""
+""" DeepSeek AI 服务集成模块 """
 
 from __future__ import annotations
 
@@ -9,21 +9,21 @@ from app.core.config import settings
 
 
 class DeepSeekError(Exception):
-    """DeepSeek API 调用异常"""
+    """ DeepSeek API 调用异常 """
     pass
 
 
 def get_deepseek_api_key() -> str:
     """
-    从环境变量获取 DeepSeek API 密钥。
+    从环境变量获取DeepSeek API密钥。
     
-    Returns:
+    返回值:
         API 密钥字符串
         
-    Raises:
+    抛出异常:
         DeepSeekError: 如果未配置 API 密钥
     """
-    # 通过 pydantic-settings 从 .env / 环境变量读取
+    # 通过 pydantic-settings从.env/环境变量读取
     api_key = settings.deepseek_api_key
     if not api_key:
         raise DeepSeekError("未配置 DEEPSEEK_API_KEY 环境变量")
@@ -38,26 +38,26 @@ def chat_with_deepseek(
     max_tokens: int = 2000,
 ) -> str:
     """
-    调用 DeepSeek API 进行对话。
+    调用DeepSeek API进行对话。
     
-    Args:
+    参数:
         messages: 对话历史，格式为 [{"role": "user", "content": "..."}, ...]
         system_prompt: 系统提示词（可选）
         model: 模型名称，默认为 "deepseek-chat"
         temperature: 温度参数，控制随机性（0-2）
-        max_tokens: 最大生成 token 数
+        max_tokens: 最大生成token数
         
-    Returns:
-        AI 回复的文本内容
+    返回值:
+        AI回复的文本内容
         
-    Raises:
-        DeepSeekError: API 调用失败时抛出
+    抛出异常:
+        DeepSeekError: API调用失败时抛出
     """
     try:
         api_key = get_deepseek_api_key()
     except DeepSeekError:
         # 如果没有配置 API 密钥，返回友好提示
-        return "抱歉，AI 助手暂未配置。请联系管理员配置 DEEPSEEK_API_KEY 环境变量。"
+        return "抱歉，AI 助手暂未配置。请联系管理员配置DEEPSEEK_API_KEY环境变量。"
     
     # 构建请求消息列表
     api_messages = []
@@ -142,16 +142,16 @@ def format_chat_history_for_api(
     max_history: int = 10,
 ) -> List[Dict[str, str]]:
     """
-    将数据库中的聊天历史格式化为 DeepSeek API 所需的格式。
+    将数据库中的聊天历史格式化为DeepSeek API所需的格式。
     
-    Args:
+    参数:
         chat_messages: 数据库中的聊天消息列表
         max_history: 最多保留的历史消息数（默认10条，即5轮对话）
         
-    Returns:
+    返回值:
         格式化后的消息列表
     """
-    # 只保留最近的 N 条消息
+    # 只保留最近的N条消息
     recent_messages = chat_messages[-max_history:] if len(chat_messages) > max_history else chat_messages
     
     # 转换格式
@@ -175,16 +175,16 @@ def analyze_prediction_data(
     core_per_node: int,
 ) -> Dict[str, any]:
     """
-    使用 DeepSeek AI 分析预测数据，生成节能策略、效果评估和任务影响分析。
+    使用DeepSeek AI分析预测数据，生成节能策略、效果评估和任务影响分析。
     
-    Args:
+    参数:
         date: 预测日期
         predicted_loads: 24小时预测负载列表
         utilization: 24小时利用率列表
         total_nodes: 总节点数
         core_per_node: 每节点核心数
         
-    Returns:
+    返回值:
         包含 strategy, effects, impact 的字典
     """
     # 计算一些基础统计数据
@@ -279,11 +279,11 @@ def analyze_prediction_data(
             max_tokens=1500,
         )
         
-        # 尝试解析 JSON 响应
+        # 解析JSON响应
         import json
         import re
         
-        # 提取 JSON 部分（可能包含在代码块中）
+        # 提取JSON部分
         json_match = re.search(r'\{[\s\S]*\}', response)
         if json_match:
             result = json.loads(json_match.group())
@@ -310,15 +310,15 @@ def generate_rule_based_analysis(
     core_per_node: int,
 ) -> Dict[str, any]:
     """
-    基于规则的分析（作为 AI 分析的降级方案）。
+    基于规则的分析（作为AI分析的降级方案）。
     
-    Args:
+    参数:
         predicted_loads: 24小时预测负载列表
         utilization: 24小时利用率列表
         total_nodes: 总节点数
         core_per_node: 每节点核心数
         
-    Returns:
+    返回值:
         包含 strategy, effects, impact 的字典
     """
     # 找出低负载时段（利用率 < 40%），并合并连续时段

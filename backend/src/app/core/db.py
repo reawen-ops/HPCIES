@@ -4,8 +4,8 @@ import sqlite3
 from pathlib import Path
 
 # 数据库路径配置
-BASE_DIR = Path(__file__).resolve().parent.parent.parent  # 到 src 目录
-DB_PATH = BASE_DIR / "hpcies.sqlite3"  # SQLite 数据库文件路径
+BASE_DIR = Path(__file__).resolve().parent.parent.parent  # 到src目录
+DB_PATH = BASE_DIR / "hpcies.sqlite3"                     # SQLite数据库文件路径
 
 
 def get_connection() -> sqlite3.Connection:
@@ -27,7 +27,7 @@ def init_db() -> None:
     conn = get_connection()
     cur = conn.cursor()
 
-    # 用户表：用户名唯一，密码使用 PBKDF2 + salt 哈希存储
+    # 用户表：用户名唯一，密码使用PBKDF2 + salt哈希存储
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS users (
@@ -39,7 +39,7 @@ def init_db() -> None:
         """
     )
 
-    # 会话表：后端生成 token，24h 过期（expires_at）
+    # 会话表：后端生成token，24h过期（expires_at）
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS sessions (
@@ -52,7 +52,7 @@ def init_db() -> None:
         """
     )
 
-    # 每用户配置（Welcome 页面填写内容）
+    # 用户配置（使用用户在Welcome页面填写的数据）
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS user_profile (
@@ -65,15 +65,6 @@ def init_db() -> None:
         )
         """
     )
-
-    # 为 user_profile 追加字段（如后续扩展）
-    try:
-        cur.execute("PRAGMA table_info(user_profile)")
-        cols = [r[1] for r in cur.fetchall()]
-        # 这里预留扩展位，目前无新增列
-        _ = cols  # 防止未使用警告
-    except Exception:
-        pass
 
     # 创建统计信息表（单行记录）
     cur.execute(
@@ -88,7 +79,7 @@ def init_db() -> None:
         """
     )
 
-    # 创建预测曲线表（24 个小时的数据点）
+    # 创建预测曲线表（24个小时的数据点）
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS prediction_points (
@@ -189,7 +180,7 @@ def init_db() -> None:
         pass
 
     # 创建历史使用数据表，存储从 CSV 导入的时间序列
-    # 历史使用数据按 user_id 隔离存储
+    # 历史使用数据按user_id隔离存储
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS historical_usage (
@@ -201,36 +192,6 @@ def init_db() -> None:
         )
         """
     )
-
-    # 轻量迁移：兼容旧版本 historical_usage(ts PRIMARY KEY, cpu_load)
-    try:
-        cur.execute("PRAGMA table_info(historical_usage)")
-        cols = [r[1] for r in cur.fetchall()]
-        if "user_id" not in cols:
-            # 旧表结构无法直接 ALTER 为复合主键；创建新表并迁移
-            cur.execute(
-                """
-                CREATE TABLE IF NOT EXISTS historical_usage_v2 (
-                    user_id INTEGER NOT NULL,
-                    ts TEXT NOT NULL,
-                    cpu_load REAL NOT NULL,
-                    PRIMARY KEY (user_id, ts),
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-                )
-                """
-            )
-            # 将旧数据临时迁移到 user_id=1（若不存在用户 1，则数据不会被使用）
-            cur.execute(
-                """
-                INSERT OR IGNORE INTO historical_usage_v2 (user_id, ts, cpu_load)
-                SELECT 1 as user_id, ts, cpu_load FROM historical_usage
-                """
-            )
-            cur.execute("DROP TABLE historical_usage")
-            cur.execute("ALTER TABLE historical_usage_v2 RENAME TO historical_usage")
-    except Exception:
-        # 迁移失败不阻塞启动（可能是首次创建的新库或并发启动）
-        pass
 
     conn.commit()
     conn.close()

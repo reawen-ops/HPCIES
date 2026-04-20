@@ -26,7 +26,7 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
       const parsed = JSON.parse(raw) as AuthData; // 使用断言语法，定义解析后的对象类型
       if (parsed?.token) {
         config.headers = config.headers ?? {}; // 如果config.headers存在就用它，否则创建空对象
-        config.headers.Authorization = `Bearer ${parsed.token}`;
+        config.headers.Authorization = `Bearer ${parsed.token}`; // 模板字符串传入参数拼接成Bearer token格式的Authorization头部
       }
     }
   } catch {

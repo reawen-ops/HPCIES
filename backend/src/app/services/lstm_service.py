@@ -1,4 +1,4 @@
-"""Service for interacting with LSTM prediction API."""
+""" LSTM预测服务模块 """
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from app.core.config import settings
 
 
 class LSTMPredictionError(Exception):
-    """Exception raised when LSTM API call fails."""
+    """ LSTM API调用失败异常 """
 
     pass
 
@@ -20,24 +20,24 @@ def predict_24h_load(
     history_24h: List[float], last_timestamp: str, predict_hours: int = 24
 ) -> List[Dict[str, Any]]:
     """
-    调用 LSTM API 预测未来负载。
+    调用LSTM API预测未来负载。
 
     参数:
         history_24h: 前 24 小时的 CPU 核时使用量列表
         last_timestamp: 最后时间戳，格式为 "YYYY-MM-DD HH:MM:SS"
         predict_hours: 预测小时数，默认 24
 
-    返回:
+    返回值:
         预测结果列表，每个元素包含:
         - timestamp: 预测时间点（可选）
         - predicted_load: 预测负载
         - suggested_nodes: 建议节点数（可选）
 
-    异常:
+    抛出异常:
         LSTMPredictionError: API 调用失败时抛出
     """
     if len(history_24h) != 24:
-        raise ValueError(f"history_24h 必须包含 24 个数据点，当前为 {len(history_24h)}")
+        raise ValueError(f"history_24h 必须包含24个数据点，当前为 {len(history_24h)}")
 
     payload = {
         "history_24h": history_24h,
@@ -55,7 +55,7 @@ def predict_24h_load(
             settings.lstm_api_url,
             json=payload,
             headers=headers,
-            # 将单次请求超时从30秒降为10秒，以避免整体预测接口长时间卡死
+            # 将单次请求超时设置为10秒，避免整体预测接口长时间卡死
             timeout=10,
         )
 
@@ -80,7 +80,7 @@ def predict_24h_load(
                     "predicted_load": pred.get("predicted_load") or pred.get("load") or pred.get("value", 0),
                     "suggested_nodes": pred.get("suggested_nodes") or pred.get("nodes", 1),
                 }
-                # 如果有 timestamp 字段，保留它
+                # 如果有timestamp字段则保留
                 if "timestamp" in pred:
                     standardized_pred["timestamp"] = pred["timestamp"]
             elif isinstance(pred, (int, float)):
@@ -117,7 +117,7 @@ def calculate_energy_saving_curve(
         total_nodes: 总节点数
         core_per_node: 每节点核心数
 
-    返回:
+    返回值:
         节能模式下的利用率列表（百分比）
     """
     if total_nodes <= 0 or core_per_node <= 0:
@@ -206,7 +206,7 @@ def calculate_effects(
         total_nodes: 总节点数
         core_per_node: 每节点核心数
 
-    返回:
+    返回值:
         效果信息字典
     """
     if not predicted_loads or total_nodes <= 0 or core_per_node <= 0:

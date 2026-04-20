@@ -29,8 +29,10 @@ from app.schemas import (
 from app.crud import get_user_by_id
 from app.utils import security
 
+# 创建处理数据的路由实例
 router = APIRouter()
 
+# 定义数据库连接类型
 DbConn = sqlite3.Connection
 
 
@@ -39,22 +41,22 @@ def _normalize_ai_response(text: str) -> str:
   对大模型返回的文本做轻量格式优化：
   - 去掉首尾空白
   - 统一换行符
-  - 将超过 2 行的连续空行压缩为最多 2 行
+  - 将超过2行的连续空行压缩为最多2行
   """
   if not isinstance(text, str):
     return str(text)
 
-  # 为了支持前端 Markdown 渲染，不要破坏Markdown语义
-  s = text.replace("\r\n", "\n").replace("\r", "\n").strip()
+  # 支持前端Markdown渲染，同时不破坏Markdown语义
+  s = text.replace("\r\n", "\n").replace("\r", "\n").strip()    # 统一换行符为Unix风格
   lines = s.split("\n")
   normalized_lines: list[str] = []
-  empty_streak = 0
-  in_fence = False
+  empty_streak = 0                              # 记录当前连续遇到的空行数量
+  in_fence = False                              # 是否处于Markdown代码块中
 
   for line in lines:
     stripped = line.lstrip()
     if stripped.startswith("```"):
-      in_fence = not in_fence
+      in_fence = not in_fence                   # 当前行以```开头，说明是Markdown代码块
       normalized_lines.append(line)
       empty_streak = 0
       continue
@@ -67,43 +69,34 @@ def _normalize_ai_response(text: str) -> str:
 
     if line.strip() == "":
       empty_streak += 1
-      if empty_streak <= 2:
+      if empty_streak <= 2:                     # 遇到连续2行以上的空行，则压缩为最多2行
         normalized_lines.append("")
       continue
-
+    
+    # 对非空行进行处理
     empty_streak = 0
     normalized_lines.append(line)
 
-  return "\n".join(normalized_lines)
+  return "\n".join(normalized_lines)            # 重新拼接为字符串
 
 
 def _parse_nodes_str(value: object) -> int | None:
   """
   解析 DeepSeek 返回的节点数量字段，如：
-  - "12 个 (40%)" -> 12
+  - "12个(40%)" -> 12
   """
   if not value:
     return None
   s = str(value)
-  m = re.search(r"(\d+)\s*个", s)
+  m = re.search(r"(\d+)\s*个", s)           # 正则表达式匹配
   return int(m.group(1)) if m else None
 
-from app.api.routes.auth import get_current_user, CurrentUser
+from app.api.routes.auth import get_current_user
 
 
 @router.get("/stats", response_model=ClusterStats)
 def get_stats(conn: DbConn = Depends(get_connection), user: dict = Depends(get_current_user)) -> ClusterStats:
-    """
-    获取集群统计信息。
-    
-    返回：
-    - total_nodes: 总节点数
-    - core_per_node: 每节点核心数
-    - total_cores: 总核心数
-    - data_days: 历史数据天数
-    - latest_date: 最新数据日期
-    - avg_utilization: 平均利用率（最近7天）
-    """
+    """ 获取集群统计信息 """
     cur = conn.cursor()
     
     # 获取集群配置
@@ -113,9 +106,9 @@ def get_stats(conn: DbConn = Depends(get_connection), user: dict = Depends(get_c
     )
     row = cur.fetchone()
     
-    total_nodes = int(row["node_count"]) if row and row["node_count"] is not None else 0
-    core_per_node = int(row["core_per_node"]) if row and row["core_per_node"] is not None else 0
-    total_cores = total_nodes * core_per_node
+    total_nodes = int(row["node_count"]) if row and row["node_count"] is not None else 0            # 总节点数
+    core_per_node = int(row["core_per_node"]) if row and row["core_per_node"] is not None else 0    # 每节点核心数
+    total_cores = total_nodes * core_per_node                                                       # 总核心数 
     
     # 获取历史数据统计
     cur.execute(
@@ -131,9 +124,9 @@ def get_stats(conn: DbConn = Depends(get_connection), user: dict = Depends(get_c
     )
     stats_row = cur.fetchone()
     
-    data_days = int(stats_row["data_days"]) if stats_row and stats_row["data_days"] else 0
-    latest_date = stats_row["latest_date"] if stats_row and stats_row["latest_date"] else None
-    avg_load = float(stats_row["avg_load"]) if stats_row and stats_row["avg_load"] else 0
+    data_days = int(stats_row["data_days"]) if stats_row and stats_row["data_days"] else 0          # 历史数据天数
+    latest_date = stats_row["latest_date"] if stats_row and stats_row["latest_date"] else None      # 最新数据日期
+    avg_load = float(stats_row["avg_load"]) if stats_row and stats_row["avg_load"] else 0           # 平均负载
     
     # 计算平均利用率
     avg_utilization = (avg_load / total_cores * 100) if total_cores > 0 else 0
@@ -151,6 +144,12 @@ def get_stats(conn: DbConn = Depends(get_connection), user: dict = Depends(get_c
 
 @router.get("/prediction", response_model=PredictionResponse)
 def get_prediction(conn: DbConn = Depends(get_connection)) -> PredictionResponse:
+    """ 
+    读取预测数据，如：
+    - 调度策略
+    - 节点状态
+    - 调度效果和影响 
+    """
     cur = conn.cursor()
     cur.execute("SELECT hour, full_load, energy_saving FROM prediction_points ORDER BY hour")
     rows = cur.fetchall()
@@ -180,6 +179,7 @@ def get_prediction(conn: DbConn = Depends(get_connection)) -> PredictionResponse
 def get_nodes(
     conn: DbConn = Depends(get_connection), user: dict = Depends(get_current_user)
 ) -> NodeMatrixResponse:
+    """ 获取节点状态矩阵 """
     cur = conn.cursor()
     cur.execute("SELECT node_count FROM user_profile WHERE user_id = ?", (user["id"],))
     row = cur.fetchone()
@@ -196,7 +196,7 @@ def get_nodes(
 def get_chat_sessions(
     conn: DbConn = Depends(get_connection), user: dict = Depends(get_current_user)
 ) -> dict:
-    """获取用户的所有对话会话列表"""
+    """ 获取用户的所有对话会话列表 """
     from app.schemas import ChatSessionsResponse, ChatSession
     
     cur = conn.cursor()
@@ -211,7 +211,7 @@ def get_chat_sessions(
         ORDER BY cs.updated_at DESC
         """,
         (user["id"],),
-    )
+    )                       # left join保证没有消息的会话也会被显示
     rows = cur.fetchall()
     sessions = [
         ChatSession(
@@ -232,7 +232,7 @@ def delete_chat_session(
     conn: DbConn = Depends(get_connection),
     user: dict = Depends(get_current_user),
 ) -> dict:
-    """删除指定会话及其消息（仅允许删除自己的会话）"""
+    """ 删除指定会话及其消息（仅允许删除自己的会话）"""
     cur = conn.cursor()
     cur.execute(
         "SELECT id FROM chat_sessions WHERE id = ? AND user_id = ?",
@@ -242,7 +242,7 @@ def delete_chat_session(
     if not row:
         raise HTTPException(status_code=404, detail="会话不存在或无权限删除")
 
-    # 显式删除，避免SQLite未开启foreign_keys时ON DELETE CASCADE不生效
+    # 显式删除，避免SQLite未设置foreign_keys时ON DELETE CASCADE不生效
     cur.execute(
         "DELETE FROM chat_messages WHERE session_id = ? AND user_id = ?",
         (session_id, user["id"]),
@@ -261,7 +261,7 @@ def chat_history(
     conn: DbConn = Depends(get_connection),
     user: dict = Depends(get_current_user)
 ) -> ChatHistoryResponse:
-    """获取指定会话的聊天历史，如果未指定则获取最新会话"""
+    """ 获取指定会话的聊天历史，如果未指定则获取最新会话 """
     cur = conn.cursor()
     
     # 如果没有指定 session_id，获取用户最新的会话
@@ -284,7 +284,7 @@ def chat_history(
             conn.commit()
             session_id = cur.lastrowid
     
-    # 获取会话的消息历史
+    # 否则就获取会话的消息历史
     cur.execute(
         "SELECT id, author, text, created_at FROM chat_messages WHERE session_id = ? ORDER BY id",
         (session_id,),
@@ -303,6 +303,7 @@ def post_chat_message(
     conn: DbConn = Depends(get_connection),
     user: dict = Depends(get_current_user),
 ) -> ChatHistoryResponse:
+    """ 发送聊天消息并获取DeepSeek的回复 """
     from app.services.deepseek_service import (
         chat_with_deepseek,
         get_hpc_system_prompt,
@@ -328,7 +329,7 @@ def post_chat_message(
             conn.commit()
             session_id = cur.lastrowid
         else:
-            # 更新会话的 updated_at
+            # 更新会话的时间戳字段
             cur.execute(
                 "UPDATE chat_sessions SET updated_at = ? WHERE id = ? AND user_id = ?",
                 (now, session_id, user["id"]),
@@ -356,7 +357,7 @@ def post_chat_message(
         # 格式化历史消息为API格式
         api_messages = format_chat_history_for_api(history_messages, max_history=10)
 
-        # 如果前端传入了context_date当前页面选中的预测日期），
+        # 如果前端传入了context_date当前页面选中的预测日期
         # 则为该日期生成一段预测/统计摘要，作为额外的系统上下文消息插入到对话最前面。
         if payload.context_date:
             try:
@@ -466,6 +467,7 @@ def post_chat_message(
                 temperature=0.7,
                 max_tokens=2000,
             )
+            # 格式化AI回复
             ai_response = _normalize_ai_response(ai_response_raw)
         except DeepSeekError as e:
             # 如果API调用失败，返回错误提示
@@ -507,6 +509,7 @@ def update_config(
     conn: DbConn = Depends(get_connection),
     user: dict = Depends(get_current_user),
 ) -> dict:
+    """ 更新用户配置 """
     cur = conn.cursor()
     cur.execute(
         "INSERT OR REPLACE INTO user_profile (user_id, node_count, core_per_node, has_history, updated_at) VALUES (?, ?, ?, ?, ?)",
@@ -542,7 +545,7 @@ def upload_history(
         
         # 检测 CSV 格式
         if "日期" in df.columns and "小时" in df.columns and "CPU核时使用量" in df.columns:
-            # 格式 1：日期、小时、CPU核时使用量
+            # 格式1：日期、小时、CPU核时使用量
             df = df[df["日期"] != "日期"].copy()  # 过滤标题行
             df["小时"] = df["小时"].astype(str).str.zfill(2)
             df["完整时间"] = pd.to_datetime(df["日期"] + " " + df["小时"] + ":00:00")
@@ -553,7 +556,7 @@ def upload_history(
                 load = float(row["CPU核时使用量"])
                 rows.append((user["id"], ts, load))
         else:
-            # 格式 2：第一列时间戳，第二列负载
+            # 格式2：第一列时间戳，第二列负载
             for _, row in df.iterrows():
                 ts = str(row.iloc[0])
                 load = float(row.iloc[1])
@@ -574,9 +577,9 @@ def upload_history(
         max_load = max(load for _, _, load in rows)
         estimated_total_cores = int(max_load * 1.2)  # 留 20% 余量
         
-        # 假设每节点 32 核心（需要根据实际情况调整）
+        # 假设每节点有32核（需要根据实际情况调整）
         core_per_node = 32
-        estimated_nodes = max(1, estimated_total_cores // core_per_node)
+        estimated_nodes = max(1, estimated_total_cores // core_per_node)    # 整数除运算，向下取整
         
         cur.execute(
             "INSERT OR REPLACE INTO user_profile (user_id, node_count, core_per_node, has_history, updated_at) VALUES (?, ?, ?, 1, ?)",
@@ -619,8 +622,7 @@ def predict_date(
     """
     获取指定日期的24小时预测数据。
     
-    参数:
-        date: 目标日期，格式为 YYYY-MM-DD
+    date: 目标日期，格式为YYYY-MM-DD
     """
     from datetime import datetime, timedelta
     from app.services.lstm_service import (
@@ -633,7 +635,7 @@ def predict_date(
     )
 
     try:
-        target_date = datetime.strptime(date, "%Y-%m-%d")
+        target_date = datetime.strptime(date, "%Y-%m-%d")   # 验证date日期格式
     except ValueError:
         raise HTTPException(status_code=400, detail="日期格式错误，应为 YYYY-MM-DD")
 
@@ -651,8 +653,8 @@ def predict_date(
     total_nodes = int(profile_row["node_count"])
     core_per_node = int(profile_row["core_per_node"])
 
-    # 使用单步滚动方式进行24小时预测，以便和test_hpc_api.py的逻辑一致
-    # 为了避免顺序调用 LSTM 导致接口长时间阻塞，这里对各小时的 LSTM 请求做并发执行
+    # 使用单步滚动方式进行24小时预测
+    # 为了避免顺序调用LSTM导致接口长时间阻塞，这里对各小时的LSTM请求做并发执行
     labels: list[str] = []
     predicted_loads: list[float | None] = [None] * 24
     suggested_nodes_list: list[int | None] = [None] * 24
@@ -661,11 +663,11 @@ def predict_date(
     history_windows: list[tuple[int, list[float], str]] = []
 
     for hour in range(24):
-        # 当前要预测的精准时间点（目标日期从 00:00 到 23:00）
+        # 当前要预测的精准时间点（目标日期从00:00到23:00）
         target_predict_time = target_date + timedelta(hours=hour)
         labels.append(target_predict_time.strftime("%H:%M"))
 
-        # 截取前 24 小时的历史数据
+        # 截取前24小时的历史数据
         start_dt = target_predict_time - timedelta(hours=24)
         end_dt = target_predict_time - timedelta(hours=1)
 
@@ -819,8 +821,8 @@ def predict_date(
         )
         impact = calculate_impact(numeric_predicted_loads)
 
-    # === 由 DeepSeek 给出节点数量建议，并据此重建 node_states（NodeMatrix 的唯一数据源） ===
-    # 三类数量之和必须等于 total_nodes，百分比之和必须等于 100%
+    # 由 DeepSeek 给出节点数量建议，并据此重建node_states（NodeMatrix 的唯一数据源）
+    # 三类数量之和必须等于total_nodes，百分比之和必须等于100%
     try:
         running_cnt = _parse_nodes_str((strategy or {}).get("running_nodes"))
         to_sleep_cnt = _parse_nodes_str((strategy or {}).get("to_sleep_nodes"))
@@ -828,20 +830,20 @@ def predict_date(
 
         # 若DeepSeek没给出可解析的数量，则不覆盖node_states（保持既有状态）
         if running_cnt is not None and to_sleep_cnt is not None:
-            # sleeping_cnt 若缺失则用剩余补齐
+            # sleeping_cnt若缺失则用剩余补齐
             if sleeping_cnt is None:
                 sleeping_cnt = max(0, total_nodes - running_cnt - to_sleep_cnt)
 
             # 归一化到合法范围
-            running_cnt = max(0, min(total_nodes, running_cnt))
-            to_sleep_cnt = max(0, min(total_nodes - running_cnt, to_sleep_cnt))
-            sleeping_cnt = max(0, total_nodes - running_cnt - to_sleep_cnt)
+            running_cnt = max(0, min(total_nodes, running_cnt))                 # 必须运行
+            to_sleep_cnt = max(0, min(total_nodes - running_cnt, to_sleep_cnt)) # 待休眠
+            sleeping_cnt = max(0, total_nodes - running_cnt - to_sleep_cnt)     # 可以关机
 
             # 业务约束：待休眠比例必须 >= 5%
             min_to_sleep = int(math.ceil(total_nodes * 0.05)) if total_nodes > 0 else 0
             if to_sleep_cnt < min_to_sleep:
                 need = min_to_sleep - to_sleep_cnt
-                # 优先从 sleeping 挪到 to_sleep，不够再从 running 挪
+                # 优先从sleeping挪到to_sleep，不够再从running挪
                 take_from_sleeping = min(need, sleeping_cnt)
                 sleeping_cnt -= take_from_sleeping
                 to_sleep_cnt += take_from_sleeping
@@ -851,7 +853,7 @@ def predict_date(
                     running_cnt -= take_from_running
                     to_sleep_cnt += take_from_running
 
-            # 计算百分比，最后一项用剩余避免四舍五入导致 > 100%
+            # 计算百分比，最后一项用剩余避免四舍五入导致结果大于100%
             if total_nodes > 0:
                 running_pct = int(round(running_cnt / total_nodes * 100))
                 to_sleep_pct = int(round(to_sleep_cnt / total_nodes * 100))
@@ -865,7 +867,7 @@ def predict_date(
             strategy["to_sleep_nodes"] = f"{to_sleep_cnt} 个 ({to_sleep_pct}%)"
             strategy["sleeping_nodes"] = f"{sleeping_cnt} 个 ({sleeping_pct}%)"
 
-            # 重建 node_states（NodeMatrix 使用这张表）
+            # 重建 node_states（NodeMatrix的数据源）
             cur.execute("DELETE FROM node_states WHERE user_id = ?", (user["id"],))
             node_id = 1
             for _ in range(running_cnt):
@@ -912,9 +914,7 @@ def predict_load(
     conn: DbConn = Depends(get_connection),
     user: dict = Depends(get_current_user),
 ) -> LoadPredictionResponse:
-    """
-    基于历史24小时数据预测下一小时负载。
-    """
+    """ 基于历史24小时数据单步预测下一小时负载 """
     from app.services.lstm_service import predict_24h_load, LSTMPredictionError
 
     if len(payload.history_24h) != 24:
@@ -974,7 +974,7 @@ def history_tree(
     
     cur = conn.cursor()
     
-    # 查询用户所有历史数据的日期（去重）
+    # 查询用户所有历史数据的日期
     cur.execute(
         """
         SELECT DISTINCT DATE(ts) as date_only

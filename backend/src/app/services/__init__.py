@@ -1,4 +1,4 @@
-"""Services package for business logic."""
+""" DeepSeek及LSTM服务模块 """
 
 from .lstm_service import (
     predict_24h_load,

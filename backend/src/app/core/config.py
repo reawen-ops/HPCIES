@@ -15,18 +15,18 @@ class Settings(BaseSettings):
     # LSTM API
     lstm_api_url: str = "https://lstm-api-bchjuwvtgg.cn-hangzhou.fcapp.run"
 
-    # DeepSeek
+    # DeepSeek API
     deepseek_api_key: str | None = None
 
-    # Database
+    # Database 地址
     database_path: str = "src/hpcies.sqlite3"
 
     # CORS
     # 为避免pydantic自动将List[str]作为JSON解码出错，这里仅用字符串承载，逗号分隔
-    # 示例：CORS_ORIGINS="http://localhost:5173,http://127.0.0.1:5173"
-    cors_origins: str = "*"  # 默认允许所有来源，生产环境应限制
+    # 比如：CORS_ORIGINS="http://localhost:5173,http://127.0.0.1:5173"
+    cors_origins: str = "*"  # 默认允许所有来源
 
-    # Application Configuration
+    # 本项目的配置
     app_title: str = "HPCIES Backend"
     app_version: str = "0.1.0"
 
@@ -37,7 +37,7 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> List[str]:
-        """Convert CORS_ORIGINS string to list."""
+        """ 将CORS源配置字符串转换成合法源地址列表 """
         value = (self.cors_origins or "").strip()
         if not value or value == "*":
             return ["*"]
