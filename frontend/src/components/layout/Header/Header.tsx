@@ -1,9 +1,14 @@
 import styles from "./Header.module.scss";
-import { FaBrain } from "react-icons/fa";
+import { FaBrain, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import { useAuth } from "../../../auth/AuthProvider";
 import { useNavigate } from "react-router-dom";
 
-const Header = () => {
+interface HeaderProps {
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+}
+
+const Header = ({ collapsed = false, onToggleCollapse }: HeaderProps) => {
   const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useAuth();
 
@@ -13,7 +18,16 @@ const Header = () => {
   };
 
   return (
-    <div className={styles.header}>
+    <div className={`${styles.header} ${collapsed ? styles["header-collapsed"] : ""}`}>
+      <button
+        type="button"
+        className={styles["header-toggle"]}
+        onClick={onToggleCollapse}
+        aria-label={collapsed ? "展开顶部栏" : "收起顶部栏"}
+        title={collapsed ? "展开顶部栏" : "收起顶部栏"}
+      >
+        {collapsed ? <FaChevronDown /> : <FaChevronUp />}
+      </button>
       <div className={styles.container}>
         {isAuthenticated && (
           <div className={styles["user-area"]}>

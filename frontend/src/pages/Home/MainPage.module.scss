@@ -6,6 +6,10 @@
   height: calc(100vh - 80px);
 }
 
+.main-container-header-collapsed {
+  height: calc(100vh - 52px);
+}
+
 .content-area {
   flex: 1;
   @include flex-column;

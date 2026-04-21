@@ -23,6 +23,8 @@ const MainPage = () => {
   const [showDataNotice, setShowDataNotice] = useState(
     () => window.sessionStorage.getItem("show-data-source-notice") === "1",
   );
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const handlePredictionUpdated = useCallback(() => {
     setNodeMatrixRefreshTrigger((prev) => prev + 1);
@@ -52,11 +54,18 @@ const MainPage = () => {
 
   return (
     <div>
-      <Header />
-      <div className={styles["main-container"]}>
+      <Header
+        collapsed={isHeaderCollapsed}
+        onToggleCollapse={() => setIsHeaderCollapsed((prev) => !prev)}
+      />
+      <div
+        className={`${styles["main-container"]} ${isHeaderCollapsed ? styles["main-container-header-collapsed"] : ""}`}
+      >
         <Sidebar
           onSelectSession={setSelectedSessionId}
           refreshTrigger={sidebarRefreshTrigger}
+          collapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
         />
         <div className={styles["content-area"]}>
           <ScrollPanel>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import styles from "./Sidebar.module.scss";
-import { FaHistory, FaComments } from "react-icons/fa";
+import { FaHistory, FaComments, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { FaTrashAlt } from "react-icons/fa";
 import {
   fetchChatSessions,
@@ -11,9 +11,16 @@ import {
 interface SidebarProps {
   onSelectSession?: (sessionId: number | null) => void;
   refreshTrigger?: number;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-const Sidebar = ({ onSelectSession, refreshTrigger }: SidebarProps) => {
+const Sidebar = ({
+  onSelectSession,
+  refreshTrigger,
+  collapsed = false,
+  onToggleCollapse,
+}: SidebarProps) => {
   const [sessions, setSessions] = useState<ChatSessionsResponse | null>(null);
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const hasInitializedSessionsRef = useRef(false);
@@ -119,7 +126,17 @@ const Sidebar = ({ onSelectSession, refreshTrigger }: SidebarProps) => {
   };
 
   return (
-    <div className={styles.sidebar}>
+    <div className={`${styles.sidebar} ${collapsed ? styles["sidebar-collapsed"] : ""}`}>
+      <button
+        type="button"
+        className={styles["sidebar-toggle"]}
+        onClick={onToggleCollapse}
+        aria-label={collapsed ? "展开侧边栏" : "收起侧边栏"}
+        title={collapsed ? "展开侧边栏" : "收起侧边栏"}
+      >
+        {collapsed ? <FaChevronRight /> : <FaChevronLeft />}
+      </button>
+      {!collapsed && (
       <div className={styles["sidebar-section"]}>
         <div className={styles["sidebar-title"]}>
           <FaHistory />
@@ -141,6 +158,7 @@ const Sidebar = ({ onSelectSession, refreshTrigger }: SidebarProps) => {
           {renderSessions()}
         </ul>
       </div>
+      )}
     </div>
   );
 };
