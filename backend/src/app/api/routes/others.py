@@ -118,9 +118,7 @@ def get_stats(conn: DbConn = Depends(get_connection), user: dict = Depends(get_c
             MAX(DATE(ts)) as latest_date,
             AVG(cpu_load) as avg_load
         FROM historical_usage
-        WHERE user_id = ?
-        """,
-        (user["id"],)
+        """
     )
     stats_row = cur.fetchone()
     
@@ -184,9 +182,7 @@ def get_nodes(
     cur.execute("SELECT node_count FROM user_profile WHERE user_id = ?", (user["id"],))
     row = cur.fetchone()
     total_nodes = int(row["node_count"]) if row and row["node_count"] is not None else 0
-    cur.execute(
-        "SELECT node_id, status FROM node_states WHERE user_id = ? ORDER BY node_id", (user["id"],)
-    )
+    cur.execute("SELECT node_id, status FROM node_states ORDER BY node_id")
     rows = cur.fetchall()
     nodes = [NodeState(node_id=int(r["node_id"]), status=r["status"]) for r in rows]
     return NodeMatrixResponse(total_nodes=total_nodes, nodes=nodes)
@@ -388,11 +384,10 @@ def post_chat_message(
                         """
                         SELECT ts, cpu_load 
                         FROM historical_usage 
-                        WHERE user_id = ? AND ts >= ? AND ts <= ?
+                        WHERE ts >= ? AND ts <= ?
                         ORDER BY ts
                         """,
                         (
-                            user["id"],
                             start_time.strftime("%Y-%m-%d %H:%M:%S"),
                             end_time.strftime("%Y-%m-%d %H:%M:%S"),
                         ),
@@ -517,7 +512,7 @@ def update_config(
     )
     conn.commit()
     # rebuild node_states suggestion
-    security.rebuild_node_states(conn, user["id"], payload.node_count)
+    security.rebuild_node_states(conn, payload.node_count)
     return {"success": True}
 
 
@@ -554,13 +549,13 @@ def upload_history(
             for _, row in df.iterrows():
                 ts = row["完整时间"].strftime("%Y-%m-%d %H:%M:%S")
                 load = float(row["CPU核时使用量"])
-                rows.append((user["id"], ts, load))
+                rows.append((ts, load))
         else:
             # 格式2：第一列时间戳，第二列负载
             for _, row in df.iterrows():
                 ts = str(row.iloc[0])
                 load = float(row.iloc[1])
-                rows.append((user["id"], ts, load))
+                rows.append((ts, load))
 
         if not rows:
             raise HTTPException(status_code=400, detail="CSV 文件中没有有效数据")
@@ -568,17 +563,17 @@ def upload_history(
         # 存储到数据库
         cur = conn.cursor()
         cur.executemany(
-            "INSERT OR REPLACE INTO historical_usage (user_id, ts, cpu_load) VALUES (?, ?, ?)",
+            "INSERT OR REPLACE INTO historical_usage (ts, cpu_load) VALUES (?, ?)",
             rows,
         )
         
         # 自动推断并更新用户配置
         # 假设：最大负载值可以推断总核心数
-        max_load = max(load for _, _, load in rows)
+        max_load = max(load for _, load in rows)
         estimated_total_cores = int(max_load * 1.2)  # 留 20% 余量
         
-        # 假设每节点有32核（需要根据实际情况调整）
-        core_per_node = 32
+        # 演示阶段默认每节点 64 核
+        core_per_node = 64
         estimated_nodes = max(1, estimated_total_cores // core_per_node)    # 整数除运算，向下取整
         
         cur.execute(
@@ -587,10 +582,10 @@ def upload_history(
         )
         
         # 重建节点状态矩阵
-        security.rebuild_node_states(conn, user["id"], estimated_nodes)
+        security.rebuild_node_states(conn, estimated_nodes)
         
         # 找出最新的数据日期，建议用户预测该日期
-        latest_timestamp = max(ts for _, ts, _ in rows)
+        latest_timestamp = max(ts for ts, _ in rows)
         latest_date = datetime.strptime(latest_timestamp, "%Y-%m-%d %H:%M:%S")
         suggested_date = latest_date.strftime("%Y-%m-%d")
         
@@ -603,8 +598,8 @@ def upload_history(
             "core_per_node": core_per_node,
             "suggested_date": suggested_date,  # 建议预测的日期
             "data_range": {
-                "start": min(ts for _, ts, _ in rows),
-                "end": max(ts for _, ts, _ in rows),
+                "start": min(ts for ts, _ in rows),
+                "end": max(ts for ts, _ in rows),
             }
         }
     except HTTPException:
@@ -675,11 +670,10 @@ def predict_date(
             """
             SELECT ts, cpu_load 
             FROM historical_usage 
-            WHERE user_id = ? AND ts >= ? AND ts <= ?
+            WHERE ts >= ? AND ts <= ?
             ORDER BY ts
             """,
             (
-                user["id"],
                 start_dt.strftime("%Y-%m-%d %H:%M:%S"),
                 end_dt.strftime("%Y-%m-%d %H:%M:%S"),
             ),
@@ -765,11 +759,11 @@ def predict_date(
             """
             SELECT CAST(STRFTIME('%H', ts) AS INTEGER) AS hour, AVG(cpu_load) AS load
             FROM historical_usage
-            WHERE user_id = ? AND DATE(ts) = ?
+            WHERE DATE(ts) = ?
             GROUP BY hour
             ORDER BY hour
             """,
-            (user["id"], target_date.strftime("%Y-%m-%d")),
+            (target_date.strftime("%Y-%m-%d"),),
         )
         day_rows = cur.fetchall()
         if day_rows:
@@ -785,11 +779,9 @@ def predict_date(
             """
             SELECT CAST(STRFTIME('%H', ts) AS INTEGER) AS hour, AVG(cpu_load) AS load
             FROM historical_usage
-            WHERE user_id = ?
             GROUP BY hour
             ORDER BY hour
-            """,
-            (user["id"],),
+            """
         )
         avg_rows = cur.fetchall()
         if avg_rows:
@@ -868,24 +860,24 @@ def predict_date(
             strategy["sleeping_nodes"] = f"{sleeping_cnt} 个 ({sleeping_pct}%)"
 
             # 重建 node_states（NodeMatrix的数据源）
-            cur.execute("DELETE FROM node_states WHERE user_id = ?", (user["id"],))
+            cur.execute("DELETE FROM node_states")
             node_id = 1
             for _ in range(running_cnt):
                 cur.execute(
-                    "INSERT INTO node_states (user_id, node_id, status) VALUES (?, ?, 'running')",
-                    (user["id"], node_id),
+                    "INSERT INTO node_states (node_id, status) VALUES (?, 'running')",
+                    (node_id,),
                 )
                 node_id += 1
             for _ in range(to_sleep_cnt):
                 cur.execute(
-                    "INSERT INTO node_states (user_id, node_id, status) VALUES (?, ?, 'to_sleep')",
-                    (user["id"], node_id),
+                    "INSERT INTO node_states (node_id, status) VALUES (?, 'to_sleep')",
+                    (node_id,),
                 )
                 node_id += 1
             for _ in range(sleeping_cnt):
                 cur.execute(
-                    "INSERT INTO node_states (user_id, node_id, status) VALUES (?, ?, 'sleeping')",
-                    (user["id"], node_id),
+                    "INSERT INTO node_states (node_id, status) VALUES (?, 'sleeping')",
+                    (node_id,),
                 )
                 node_id += 1
             conn.commit()
@@ -979,10 +971,8 @@ def history_tree(
         """
         SELECT DISTINCT DATE(ts) as date_only
         FROM historical_usage
-        WHERE user_id = ?
         ORDER BY date_only
-        """,
-        (user["id"],),
+        """
     )
     
     rows = cur.fetchall()

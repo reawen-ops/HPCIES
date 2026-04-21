@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import requests
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 from app.core.config import settings
 
@@ -70,7 +70,8 @@ def chat_with_deepseek(
     api_messages.extend(messages)
     
     # 准备请求
-    url = "https://api.deepseek.com/v1/chat/completions"
+    base_url = settings.deepseek_base_url.rstrip("/")
+    url = f"{base_url}/chat/completions"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}",
@@ -173,7 +174,7 @@ def analyze_prediction_data(
     utilization: List[float],
     total_nodes: int,
     core_per_node: int,
-) -> Dict[str, any]:
+) -> Dict[str, Any]:
     """
     使用DeepSeek AI分析预测数据，生成节能策略、效果评估和任务影响分析。
     
@@ -235,6 +236,7 @@ def analyze_prediction_data(
      - to_sleep_nodes 的比例必须 **>= 5%**（即：to_sleep_nodes 的 X 必须 >= ceil({total_nodes} * 0.05)）
 
 2. **负载特征**（effects）：
+   - 功率口径：单节点运行功率 20KWh/24h，单节点待机态功率 8KWh/24h
    - avg_utilization: 当前平均利用率（如：{avg_util:.1f}%）
    - optimized_utilization: 节能模式下的预期利用率（关闭部分节点后），即假设用户严格按照你所提议的节点策略配置，每小时核使用率 = 每小时的核使用量 / （开机节点数 * 每个节点的核数 * 1小时），平均利用率 = 24小时的核使用量 / 24
    - load_stability: 负载稳定性（稳定/波动较大）
@@ -245,6 +247,7 @@ def analyze_prediction_data(
 3. **任务影响**（impact）：
    - delay: 预计任务延迟（如：<5%，可接受）
    - queue_risk: 队列积压风险（如：低风险）
+   - immediate_capacity: 可立即启动容量（展示待机节点，格式如：8 个节点可立即启动）
    - emergency_response: 紧急响应能力（如：保留30%节点，可快速唤醒）
 
 请直接返回JSON格式的结果，不要包含任何解释文字：
@@ -266,6 +269,7 @@ def analyze_prediction_data(
   "impact": {{
     "delay": "...",
     "queue_risk": "...",
+    "immediate_capacity": "...",
     "emergency_response": "..."
   }}
 }}"""
@@ -308,7 +312,7 @@ def generate_rule_based_analysis(
     utilization: List[float],
     total_nodes: int,
     core_per_node: int,
-) -> Dict[str, any]:
+) -> Dict[str, Any]:
     """
     基于规则的分析（作为AI分析的降级方案）。
     
@@ -398,6 +402,7 @@ def generate_rule_based_analysis(
         queue_risk = "中等风险，建议密切关注"
     
     emergency_response = f"保留 {running_nodes} 个节点运行，{to_sleep_nodes} 个节点可在 30 秒内唤醒"
+    immediate_capacity = f"{to_sleep_nodes} 个节点可立即启动"
     
     return {
         "strategy": {
@@ -417,6 +422,7 @@ def generate_rule_based_analysis(
         "impact": {
             "delay": delay,
             "queue_risk": queue_risk,
+            "immediate_capacity": immediate_capacity,
             "emergency_response": emergency_response
         }
     }

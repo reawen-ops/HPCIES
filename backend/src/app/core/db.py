@@ -90,15 +90,13 @@ def init_db() -> None:
         """
     )
 
-    # 创建节点状态表
+    # 创建节点状态表（演示阶段为全局节点状态，不按用户隔离）
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS node_states (
-            user_id INTEGER NOT NULL,
             node_id INTEGER NOT NULL,
-            status TEXT NOT NULL CHECK (status IN ('running', 'sleeping', 'to_sleep'))
-            ,PRIMARY KEY (user_id, node_id)
-            ,FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            status TEXT NOT NULL CHECK (status IN ('running', 'sleeping', 'to_sleep')),
+            PRIMARY KEY (node_id)
         )
         """
     )
@@ -179,16 +177,13 @@ def init_db() -> None:
     except Exception:
         pass
 
-    # 创建历史使用数据表，存储从 CSV 导入的时间序列
-    # 历史使用数据按user_id隔离存储
+    # 创建历史使用数据表（演示阶段为全局历史数据，不按用户隔离）
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS historical_usage (
-            user_id INTEGER NOT NULL,
             ts TEXT NOT NULL,
             cpu_load REAL NOT NULL,
-            PRIMARY KEY (user_id, ts),
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            PRIMARY KEY (ts)
         )
         """
     )

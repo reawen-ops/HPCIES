@@ -110,3 +110,21 @@ uvicorn main:app --reload
 - `node_states`：节点矩阵状态（running/to_sleep/sleeping）
 - `chat_sessions` / `chat_messages`：AI 对话会话与消息
 - `prediction_points`：早期 demo 用的静态预测数据（目前主要用于兼容老接口）
+
+---
+
+## 演示阶段数据库脚本
+
+- 迁移 `historical_usage`、`node_states` 去除 `user_id` 字段：
+
+```bash
+cd backend
+python scripts/migrate_remove_user_id.py
+```
+
+- 从本地 CSV 导入核使用数据到 `historical_usage`：
+
+```bash
+cd backend
+python scripts/import_usage_csv.py
+```

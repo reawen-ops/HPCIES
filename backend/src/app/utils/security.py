@@ -70,10 +70,10 @@ def create_session(conn, user_id: int) -> tuple[str, str]:
     return token, expires_at
 
 
-def rebuild_node_states(conn, user_id: int, total_nodes: int) -> None:
-    """ 根据总节点数为指定用户重建默认node_states建议矩阵 """
+def rebuild_node_states(conn, total_nodes: int) -> None:
+    """ 根据总节点数重建默认 node_states 建议矩阵（全局） """
     cur = conn.cursor()
-    cur.execute("DELETE FROM node_states WHERE user_id = ?", (user_id,))
+    cur.execute("DELETE FROM node_states")
     total = max(int(total_nodes), 0)
 
     if total <= 0:
@@ -87,20 +87,20 @@ def rebuild_node_states(conn, user_id: int, total_nodes: int) -> None:
     node_id = 1
     for _ in range(must_run):
         cur.execute(
-            "INSERT INTO node_states (user_id, node_id, status) VALUES (?, ?, 'running')",
-            (user_id, node_id),
+            "INSERT INTO node_states (node_id, status) VALUES (?, 'running')",
+            (node_id,),
         )
         node_id += 1
     for _ in range(to_sleep):
         cur.execute(
-            "INSERT INTO node_states (user_id, node_id, status) VALUES (?, ?, 'to_sleep')",
-            (user_id, node_id),
+            "INSERT INTO node_states (node_id, status) VALUES (?, 'to_sleep')",
+            (node_id,),
         )
         node_id += 1
     for _ in range(sleeping):
         cur.execute(
-            "INSERT INTO node_states (user_id, node_id, status) VALUES (?, ?, 'sleeping')",
-            (user_id, node_id),
+            "INSERT INTO node_states (node_id, status) VALUES (?, 'sleeping')",
+            (node_id,),
         )
         node_id += 1
     conn.commit()

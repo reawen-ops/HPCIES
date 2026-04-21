@@ -1,6 +1,11 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { FaBolt, FaChartLine, FaLeaf, FaTasks } from "react-icons/fa";
-import { fetchPredictionForDate, type PredictionResponse } from "../../api";
+import {
+  fetchClusterStats,
+  fetchPredictionForDate,
+  type ClusterStats,
+  type PredictionResponse,
+} from "../../api";
 import styles from "./PredictionChart.module.scss";
 import {
   Chart as ChartJS,
@@ -23,7 +28,7 @@ ChartJS.register(
 );
 
 type RangeOption = "今日" | "未来3天" | "未来7天";
-type DisplayMode = "全部" | "仅实际" | "仅节能";
+type DisplayMode = "全部" | "仅实际" | "仅预测";
 
 interface PredictionChartProps {
   selectedDate: string;
@@ -31,6 +36,9 @@ interface PredictionChartProps {
   onPredictionUpdated?: () => void;
   onDailyPredictedCoreHoursChange?: (dailyPredictedCoreHours: number | null) => void;
 }
+
+const RUNNING_POWER_PER_HOUR = 20;
+const STANDBY_POWER_PER_HOUR = 8;
 
 const PredictionChart = ({
   selectedDate,
@@ -41,8 +49,9 @@ const PredictionChart = ({
   const DATE_MIN = "2025-04-01";
   const DATE_MAX = "2025-11-30";
   const [range] = useState<RangeOption>("今日");
-  const [displayMode, setDisplayMode] = useState<DisplayMode>("仅节能");
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("仅预测");
   const [data, setData] = useState<PredictionResponse | null>(null);
+  const [clusterStats, setClusterStats] = useState<ClusterStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,6 +108,7 @@ const PredictionChart = ({
         impact: {
           delay: resp.impact?.delay ?? "数据待获取",
           queue_risk: resp.impact?.queue_risk ?? "数据待获取",
+          immediate_capacity: resp.impact?.immediate_capacity ?? "数据待获取",
           emergency_response: resp.impact?.emergency_response ?? "数据待获取",
         },
       });
@@ -139,6 +149,14 @@ const PredictionChart = ({
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    fetchClusterStats()
+      .then(setClusterStats)
+      .catch(() => {
+        setClusterStats(null);
+      });
+  }, []);
+
   // 预测范围控制已从 UI 中移除，保留 range 状态以便将来扩展（当前固定为“今日”）
 
   const onModeClick = (mode: DisplayMode) => {
@@ -158,7 +176,7 @@ const PredictionChart = ({
     const labels = data.labels ?? [];
 
     const showActual = displayMode === "全部" || displayMode === "仅实际";
-    const showPredicted = displayMode === "全部" || displayMode === "仅节能";
+    const showPredicted = displayMode === "全部" || displayMode === "仅预测";
 
     return {
       labels,
@@ -230,6 +248,52 @@ const PredictionChart = ({
     [],
   );
 
+  const energyMetrics = useMemo(() => {
+    if (!data || !clusterStats || clusterStats.core_per_node <= 0 || clusterStats.total_nodes <= 0) {
+      return null;
+    }
+
+    const parseNodeCount = (value: string | undefined): number => {
+      if (!value) return 0;
+      const matched = value.match(/(\d+)\s*个/);
+      return matched ? Number(matched[1]) : 0;
+    };
+
+    const suggestedRunningNodes = parseNodeCount(data.strategy?.running_nodes);
+    const suggestedStandbyNodes = parseNodeCount(data.strategy?.to_sleep_nodes);
+    const totalNodes = clusterStats.total_nodes;
+    const corePerNode = clusterStats.core_per_node;
+
+    const actualDailyEstimatedEnergy = (data.full_load ?? []).reduce((sum, load) => {
+      const runningNodes = Math.min(
+        totalNodes,
+        Math.max(0, Math.ceil((load ?? 0) / corePerNode)),
+      );
+      const standbyNodes = Math.max(0, totalNodes - runningNodes);
+      const hourEnergy =
+        runningNodes * RUNNING_POWER_PER_HOUR +
+        standbyNodes * STANDBY_POWER_PER_HOUR;
+      return sum + hourEnergy;
+    }, 0);
+
+    const suggestedDailyEnergy =
+      suggestedRunningNodes * RUNNING_POWER_PER_HOUR * 24 +
+      suggestedStandbyNodes * STANDBY_POWER_PER_HOUR * 24;
+
+    const savingEfficiency =
+      actualDailyEstimatedEnergy > 0
+        ? ((actualDailyEstimatedEnergy - suggestedDailyEnergy) /
+            actualDailyEstimatedEnergy) *
+          100
+        : null;
+
+    return {
+      suggestedDailyEnergy,
+      actualDailyEstimatedEnergy,
+      savingEfficiency,
+    };
+  }, [clusterStats, data]);
+
   // render 阶段可能抛出错误，使用 try/catch 包装
   let content: React.ReactElement;
   try {
@@ -296,7 +360,7 @@ const PredictionChart = ({
             <div className={styles["control-group"]}>
               <span className={styles["control-label"]}>显示模式</span>
               <div className={styles["control-buttons"]}>
-                {(["全部", "仅实际", "仅节能"] as DisplayMode[]).map((mode) => (
+                {(["全部", "仅实际", "仅预测"] as DisplayMode[]).map((mode) => (
                   <button
                     key={mode}
                     type="button"
@@ -386,33 +450,39 @@ const PredictionChart = ({
             <div className={styles["detail-content"]}>
               <div className={styles["status-list"]}>
                 <div className={styles["status-item"]}>
-                  <span className={styles["status-label"]}>当前平均利用率</span>
-                  <span
-                    className={
-                      styles["status-value"] +
-                      " " +
-                      styles["detail-value-highlight"]
-                    }
-                  >
-                    {data?.effects?.avg_utilization ?? "0%"}
+                  <span className={styles["status-label"]}>单节点运行功率</span>
+                  <span className={styles["status-value"]}>
+                    {RUNNING_POWER_PER_HOUR}KWh/24h
                   </span>
                 </div>
                 <div className={styles["status-item"]}>
-                  <span className={styles["status-label"]}>优化后利用率</span>
+                  <span className={styles["status-label"]}>单节点待机态功率</span>
                   <span className={styles["status-value"]}>
-                    {data?.effects?.optimized_utilization ?? "0%"}
+                    {STANDBY_POWER_PER_HOUR}KWh/24h
                   </span>
                 </div>
                 <div className={styles["status-item"]}>
-                  <span className={styles["status-label"]}>负载稳定性</span>
+                  <span className={styles["status-label"]}>建议策略日耗电量</span>
                   <span className={styles["status-value"]}>
-                    {data?.effects?.load_stability ?? "数据待获取"}
+                    {energyMetrics
+                      ? `${energyMetrics.suggestedDailyEnergy.toFixed(1)} kWh`
+                      : "数据待获取"}
                   </span>
                 </div>
                 <div className={styles["status-item"]}>
-                  <span className={styles["status-label"]}>利用率范围</span>
+                  <span className={styles["status-label"]}>实际日耗电估算量</span>
                   <span className={styles["status-value"]}>
-                    {data?.effects?.utilization_range ?? "0% - 0%"}
+                    {energyMetrics
+                      ? `${energyMetrics.actualDailyEstimatedEnergy.toFixed(1)} kWh`
+                      : "数据待获取"}
+                  </span>
+                </div>
+                <div className={styles["status-item"]}>
+                  <span className={styles["status-label"]}>节能效率</span>
+                  <span className={styles["status-value"]}>
+                    {energyMetrics?.savingEfficiency == null
+                      ? "数据待获取"
+                      : `${energyMetrics.savingEfficiency.toFixed(2)}%`}
                   </span>
                 </div>
               </div>
@@ -436,6 +506,14 @@ const PredictionChart = ({
                   <span className={styles["status-label"]}>队列积压风险</span>
                   <span className={styles["status-value"]}>
                     {data?.impact?.queue_risk ?? "数据待获取"}
+                  </span>
+                </div>
+                <div className={styles["status-item"]}>
+                  <span className={styles["status-label"]}>可立即启动容量</span>
+                  <span className={styles["status-value"]}>
+                    {data?.impact?.immediate_capacity ??
+                      data?.strategy?.to_sleep_nodes ??
+                      "数据待获取"}
                   </span>
                 </div>
                 <div className={styles["status-item"]}>

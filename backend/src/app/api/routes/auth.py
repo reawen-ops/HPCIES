@@ -43,7 +43,7 @@ def register(payload: RegisterRequest, conn: DbConn = Depends(get_connection)) -
     # 初始化用户配置表
     cur.execute(
         "INSERT OR REPLACE INTO user_profile (user_id, node_count, core_per_node, has_history, updated_at) VALUES (?, ?, ?, ?, ?)",
-        (user_id, None, None, 0, security._now_iso()),
+        (user_id, 38, 64, 1, security._now_iso()),
     )
     conn.commit()
     return {"success": True}

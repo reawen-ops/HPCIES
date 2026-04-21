@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     # DeepSeek API
     deepseek_api_key: str | None = None
+    deepseek_base_url: str = "https://api.deepseek.com/v1"
 
     # Database 地址
     database_path: str = "src/hpcies.sqlite3"

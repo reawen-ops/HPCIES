@@ -109,6 +109,7 @@ export interface PredictionResponse {
   impact: {
     delay: string;
     queue_risk: string;
+    immediate_capacity?: string;
     emergency_response: string;
   };
 }
@@ -253,6 +254,7 @@ export interface DatePredictionResponse {
   impact: {
     delay: string;
     queue_risk: string;
+    immediate_capacity?: string;
     emergency_response: string;
   };
 }
