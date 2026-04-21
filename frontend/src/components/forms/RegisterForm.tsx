@@ -5,7 +5,7 @@ import { useAuth } from "../../auth/AuthProvider";
 
 const RegisterForm = () => {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -22,7 +22,9 @@ const RegisterForm = () => {
     setSubmitting(true);
     try {
       await register(username, password);
-      navigate("/login", { replace: true });
+      await login(username, password);
+      window.sessionStorage.setItem("show-data-source-notice", "1");
+      navigate("/", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "注册失败");
     } finally {

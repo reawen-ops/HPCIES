@@ -16,6 +16,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
+  gap: $spacing-sm;
 }
 
 .logo {
@@ -61,5 +63,20 @@
     background-color: rgba(255, 255, 255, 0.12);
     border-color: #fff;
     color: #fff;
+  }
+}
+
+.source-text {
+  font-size: $font-size-sm;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.source-link {
+  color: #fff;
+  margin-left: 4px;
+  text-decoration: underline;
+
+  &:hover {
+    color: #e2e8f0;
   }
 }

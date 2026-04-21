@@ -38,8 +38,10 @@ const PredictionChart = ({
   onPredictionUpdated,
   onDailyPredictedCoreHoursChange,
 }: PredictionChartProps) => {
+  const DATE_MIN = "2025-04-01";
+  const DATE_MAX = "2025-11-30";
   const [range] = useState<RangeOption>("今日");
-  const [displayMode, setDisplayMode] = useState<DisplayMode>("全部");
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("仅节能");
   const [data, setData] = useState<PredictionResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,6 +143,12 @@ const PredictionChart = ({
 
   const onModeClick = (mode: DisplayMode) => {
     setDisplayMode(mode);
+  };
+  const handleDateChange = (nextDate: string) => {
+    if (nextDate < DATE_MIN || nextDate > DATE_MAX) {
+      return;
+    }
+    onChangeDate(nextDate);
   };
 
   const chartData = useMemo(() => {
@@ -258,8 +266,10 @@ const PredictionChart = ({
             <input
               aria-label="选择预测日期"
               type="date"
+              min={DATE_MIN}
+              max={DATE_MAX}
               value={selectedDate}
-              onChange={(e) => onChangeDate(e.target.value)}
+              onChange={(e) => handleDateChange(e.target.value)}
             />
           </div>
           <div className={styles["chart-content"]}>

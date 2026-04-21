@@ -31,6 +31,17 @@ const Header = () => {
           <FaBrain />
           <span>HPC智能节能调度系统</span>
         </div>
+        <div className={styles["source-text"]}>
+          本系统所有数据均来自
+          <a
+            href="https://hpc.ncepu.edu.cn"
+            target="_blank"
+            rel="noreferrer noopener"
+            className={styles["source-link"]}
+          >
+            华北电力大学高性能计算平台
+          </a>
+        </div>
       </div>
     </div>
   );

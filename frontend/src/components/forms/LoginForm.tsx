@@ -17,6 +17,7 @@ const LoginForm = () => {
     setError(null);
     try {
       await login(username, password);
+      window.sessionStorage.setItem("show-data-source-notice", "1");
       navigate("/", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "登录失败");

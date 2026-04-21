@@ -12,3 +12,37 @@
   padding: $spacing-xl;
   overflow: hidden;
 }
+
+.notice-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: z(modal);
+}
+
+.notice-content {
+  width: min(560px, 90vw);
+  background: #fff;
+  border-radius: $radius-lg;
+  padding: $spacing-xxl;
+  box-shadow: $shadow-modal;
+
+  h3 {
+    margin: 0 0 $spacing-md;
+    color: $primary-dark;
+  }
+
+  p {
+    margin: 0;
+    line-height: 1.7;
+    color: $text-secondary;
+  }
+}
+
+.notice-button {
+  margin-top: $spacing-xl;
+  @include button-primary;
+}

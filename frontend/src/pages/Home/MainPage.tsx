@@ -6,15 +6,12 @@ import StatisticsInfo from "../../components/common/StatisticsInfo";
 import PredictionChart from "../../components/ui/PredictionChart";
 import NodeMatrix from "../../components/ui/NodeMatrix";
 import ChatContainer from "../../components/common/ChatContainer";
-import Welcome from "../../components/features/Welcome";
 import styles from "./MainPage.module.scss";
 import { useAuth } from "../../auth/AuthProvider";
 
 const MainPage = () => {
   const { profile, refreshMe } = useAuth();
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().slice(0, 10),
-  );
+  const [selectedDate, setSelectedDate] = useState<string>("2025-11-01");
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(
     null,
   );
@@ -23,6 +20,9 @@ const MainPage = () => {
   const [dailyPredictedCoreHours, setDailyPredictedCoreHours] = useState<
     number | null
   >(null);
+  const [showDataNotice, setShowDataNotice] = useState(
+    () => window.sessionStorage.getItem("show-data-source-notice") === "1",
+  );
 
   const handlePredictionUpdated = useCallback(() => {
     setNodeMatrixRefreshTrigger((prev) => prev + 1);
@@ -33,34 +33,11 @@ const MainPage = () => {
     refreshMe().catch(() => {});
   }, [refreshMe]);
 
-  // 直接在渲染阶段计算派生状态，避免在effect中setState
-  const needsSetup =
-    !profile ||
-    profile.has_history !== 1 ||
-    profile.node_count == null ||
-    profile.core_per_node == null;
-
-  const handleCompleteConfig = async (config: {
-    nodeCount: number;
-    corePerNode: number;
-    suggestedDate?: string;
-  }) => {
-    // 配置完成后刷新一次，让各组件用到最新配置/数据
-    await refreshMe().catch(() => {});
-
-    // 触发侧边栏刷新树形结构
-    setSidebarRefreshTrigger((prev) => prev + 1);
-
-    // 如果后端返回了建议的预测日期，使用它；否则选择昨天
-    if (config.suggestedDate) {
-      setSelectedDate(config.suggestedDate);
-    } else {
-      const today = new Date();
-      const targetDate = new Date(today);
-      targetDate.setDate(today.getDate() - 1);
-      setSelectedDate(targetDate.toISOString().slice(0, 10));
+  useEffect(() => {
+    if (showDataNotice) {
+      window.sessionStorage.removeItem("show-data-source-notice");
     }
-  };
+  }, [showDataNotice]);
 
   const avgUtilizationPercent =
     dailyPredictedCoreHours != null &&
@@ -99,7 +76,23 @@ const MainPage = () => {
           </ScrollPanel>
         </div>
       </div>
-      {needsSetup && <Welcome onComplete={handleCompleteConfig} />}
+      {showDataNotice && (
+        <div className={styles["notice-modal"]} role="dialog" aria-modal="true">
+          <div className={styles["notice-content"]}>
+            <h3>提示</h3>
+            <p>
+              本系统所用数据均来自华北电力大学高性能计算平台的真实数据，当前系统仅用于演示。
+            </p>
+            <button
+              type="button"
+              className={styles["notice-button"]}
+              onClick={() => setShowDataNotice(false)}
+            >
+              我已知晓
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

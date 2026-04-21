@@ -9,7 +9,7 @@ import type { ReactElement } from "react";
 function RequireAuth({ children }: { children: ReactElement }) {
   const { isLoading, isAuthenticated } = useAuth();
   if (isLoading) return <div />;
-  if (!isAuthenticated) return <Navigate to="/register" replace />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
   return children;
 }
 
