@@ -10,16 +10,13 @@ import styles from "./MainPage.module.scss";
 import { useAuth } from "../../auth/AuthProvider";
 
 const MainPage = () => {
-  const { profile, refreshMe } = useAuth();
+  const { refreshMe } = useAuth();
   const [selectedDate, setSelectedDate] = useState<string>("2025-11-01");
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(
     null,
   );
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [nodeMatrixRefreshTrigger, setNodeMatrixRefreshTrigger] = useState(0);
-  const [dailyPredictedCoreHours, setDailyPredictedCoreHours] = useState<
-    number | null
-  >(null);
   const [showDataNotice, setShowDataNotice] = useState(
     () => window.sessionStorage.getItem("show-data-source-notice") === "1",
   );
@@ -41,17 +38,6 @@ const MainPage = () => {
     }
   }, [showDataNotice]);
 
-  const avgUtilizationPercent =
-    dailyPredictedCoreHours != null &&
-    profile?.node_count != null &&
-    profile?.core_per_node != null &&
-    profile.node_count > 0 &&
-    profile.core_per_node > 0
-      ? (dailyPredictedCoreHours /
-          (profile.node_count * profile.core_per_node * 24)) *
-        100
-      : null;
-
   return (
     <div>
       <Header
@@ -69,12 +55,11 @@ const MainPage = () => {
         />
         <div className={styles["content-area"]}>
           <ScrollPanel>
-            <StatisticsInfo avgUtilizationPercent={avgUtilizationPercent} />
+            <StatisticsInfo selectedDate={selectedDate} />
             <PredictionChart
               selectedDate={selectedDate}
               onChangeDate={setSelectedDate}
               onPredictionUpdated={handlePredictionUpdated}
-              onDailyPredictedCoreHoursChange={setDailyPredictedCoreHours}
             />
             <NodeMatrix refreshTrigger={nodeMatrixRefreshTrigger} />
             <ChatContainer
