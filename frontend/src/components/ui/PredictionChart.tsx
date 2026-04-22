@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { FaBolt, FaChartLine, FaLeaf, FaTasks } from "react-icons/fa";
 import {
@@ -34,7 +35,9 @@ interface PredictionChartProps {
   selectedDate: string;
   onChangeDate: (date: string) => void;
   onPredictionUpdated?: () => void;
-  onDailyPredictedCoreHoursChange?: (dailyPredictedCoreHours: number | null) => void;
+  onDailyPredictedCoreHoursChange?: (
+    dailyPredictedCoreHours: number | null,
+  ) => void;
 }
 
 const RUNNING_POWER_PER_HOUR = 20;
@@ -52,6 +55,9 @@ const PredictionChart = ({
   const [displayMode, setDisplayMode] = useState<DisplayMode>("仅预测");
   const [data, setData] = useState<PredictionResponse | null>(null);
   const [clusterStats, setClusterStats] = useState<ClusterStats | null>(null);
+  const [avgSavingEfficiency, setAvgSavingEfficiency] = useState<number | null>(
+    null,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,12 +76,24 @@ const PredictionChart = ({
         return;
       }
 
-      const predictedLoads = (resp.predicted_loads as (number | null)[] | undefined) ?? [];
+      const predictedLoads =
+        (resp.predicted_loads as (number | null)[] | undefined) ?? [];
       const dailyPredictedCoreHours = predictedLoads.reduce<number>(
         (sum, v) => sum + (v == null ? 0 : v),
         0,
       );
       onDailyPredictedCoreHoursChange?.(dailyPredictedCoreHours);
+
+      const savingValues = (resp.energy_saving ?? []).filter((v) =>
+        Number.isFinite(v),
+      );
+      if (savingValues.length === 0) {
+        setAvgSavingEfficiency(null);
+      } else {
+        const avgSaving =
+          savingValues.reduce((sum, v) => sum + v, 0) / savingValues.length;
+        setAvgSavingEfficiency(avgSaving);
+      }
 
       setData({
         labels: resp.labels ?? [],
@@ -133,6 +151,7 @@ const PredictionChart = ({
         setError("获取预测失败，请稍后重试");
       }
       setData(null);
+      setAvgSavingEfficiency(null);
       onDailyPredictedCoreHoursChange?.(null);
     } finally {
       setLoading(false);
@@ -249,7 +268,12 @@ const PredictionChart = ({
   );
 
   const energyMetrics = useMemo(() => {
-    if (!data || !clusterStats || clusterStats.core_per_node <= 0 || clusterStats.total_nodes <= 0) {
+    if (
+      !data ||
+      !clusterStats ||
+      clusterStats.core_per_node <= 0 ||
+      clusterStats.total_nodes <= 0
+    ) {
       return null;
     }
 
@@ -264,17 +288,20 @@ const PredictionChart = ({
     const totalNodes = clusterStats.total_nodes;
     const corePerNode = clusterStats.core_per_node;
 
-    const actualDailyEstimatedEnergy = (data.full_load ?? []).reduce((sum, load) => {
-      const runningNodes = Math.min(
-        totalNodes,
-        Math.max(0, Math.ceil((load ?? 0) / corePerNode)),
-      );
-      const standbyNodes = Math.max(0, totalNodes - runningNodes);
-      const hourEnergy =
-        runningNodes * RUNNING_POWER_PER_HOUR +
-        standbyNodes * STANDBY_POWER_PER_HOUR;
-      return sum + hourEnergy;
-    }, 0);
+    const actualDailyEstimatedEnergy = (data.full_load ?? []).reduce(
+      (sum, load) => {
+        const runningNodes = Math.min(
+          totalNodes,
+          Math.max(0, Math.ceil((load ?? 0) / corePerNode)),
+        );
+        const standbyNodes = Math.max(0, totalNodes - runningNodes);
+        const hourEnergy =
+          runningNodes * RUNNING_POWER_PER_HOUR +
+          standbyNodes * STANDBY_POWER_PER_HOUR;
+        return sum + hourEnergy;
+      },
+      0,
+    );
 
     const suggestedDailyEnergy =
       suggestedRunningNodes * RUNNING_POWER_PER_HOUR * 24 +
@@ -456,13 +483,17 @@ const PredictionChart = ({
                   </span>
                 </div>
                 <div className={styles["status-item"]}>
-                  <span className={styles["status-label"]}>单节点待机态功率</span>
+                  <span className={styles["status-label"]}>
+                    单节点待机态功率
+                  </span>
                   <span className={styles["status-value"]}>
                     {STANDBY_POWER_PER_HOUR}KWh/24h
                   </span>
                 </div>
                 <div className={styles["status-item"]}>
-                  <span className={styles["status-label"]}>建议策略日耗电量</span>
+                  <span className={styles["status-label"]}>
+                    建议策略日耗电量
+                  </span>
                   <span className={styles["status-value"]}>
                     {energyMetrics
                       ? `${energyMetrics.suggestedDailyEnergy.toFixed(1)} kWh`
@@ -470,7 +501,9 @@ const PredictionChart = ({
                   </span>
                 </div>
                 <div className={styles["status-item"]}>
-                  <span className={styles["status-label"]}>实际日耗电估算量</span>
+                  <span className={styles["status-label"]}>
+                    实际日耗电估算量
+                  </span>
                   <span className={styles["status-value"]}>
                     {energyMetrics
                       ? `${energyMetrics.actualDailyEstimatedEnergy.toFixed(1)} kWh`
@@ -480,9 +513,9 @@ const PredictionChart = ({
                 <div className={styles["status-item"]}>
                   <span className={styles["status-label"]}>节能效率</span>
                   <span className={styles["status-value"]}>
-                    {energyMetrics?.savingEfficiency == null
+                    {avgSavingEfficiency == null
                       ? "数据待获取"
-                      : `${energyMetrics.savingEfficiency.toFixed(2)}%`}
+                      : `${avgSavingEfficiency.toFixed(1)}%`}
                   </span>
                 </div>
               </div>

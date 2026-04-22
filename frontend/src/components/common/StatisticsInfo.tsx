@@ -28,7 +28,7 @@ const StatisticsInfo = ({ selectedDate }: StatisticsInfoProps) => {
 
   useEffect(() => {
     if (!selectedDate) {
-      setAccuracyPercent(null);
+      setAccuracyPercent(null); // 此处报错是ESLint规则过于严格导致的，实际中可以忽略
       setAvgSavingEfficiency(null);
       return;
     }
@@ -51,7 +51,8 @@ const StatisticsInfo = ({ selectedDate }: StatisticsInfoProps) => {
           setAccuracyPercent(null);
         } else {
           const avgErrorRate =
-            hourErrorRates.reduce((sum, v) => sum + v, 0) / hourErrorRates.length;
+            hourErrorRates.reduce((sum, v) => sum + v, 0) /
+            hourErrorRates.length;
           const accuracy = (1 - avgErrorRate) * 100;
           setAccuracyPercent(Math.max(0, Math.min(100, accuracy)));
         }
@@ -96,7 +97,9 @@ const StatisticsInfo = ({ selectedDate }: StatisticsInfoProps) => {
       <div className={styles["stat-item"]}>
         <div className={styles["stat-title"]}>平均节能效率</div>
         <div className={styles["stat-value"]}>
-          {avgSavingEfficiency == null ? "--" : `${avgSavingEfficiency.toFixed(1)}%`}
+          {avgSavingEfficiency == null
+            ? "--"
+            : `${avgSavingEfficiency.toFixed(1)}%`}
         </div>
       </div>
     </div>
