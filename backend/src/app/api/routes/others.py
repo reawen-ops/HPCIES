@@ -822,6 +822,11 @@ def predict_date(
 
         # 若DeepSeek没给出可解析的数量，则不覆盖node_states（保持既有状态）
         if running_cnt is not None and to_sleep_cnt is not None:
+            peak_required_running = (
+                max(1, int(math.ceil(max(numeric_predicted_loads) / core_per_node)))
+                if core_per_node > 0 and numeric_predicted_loads
+                else 1
+            )
             # sleeping_cnt若缺失则用剩余补齐
             if sleeping_cnt is None:
                 sleeping_cnt = max(0, total_nodes - running_cnt - to_sleep_cnt)
@@ -841,9 +846,21 @@ def predict_date(
                 to_sleep_cnt += take_from_sleeping
                 need -= take_from_sleeping
                 if need > 0:
-                    take_from_running = min(need, running_cnt)
+                    take_from_running = min(need, max(0, running_cnt - peak_required_running))
                     running_cnt -= take_from_running
                     to_sleep_cnt += take_from_running
+
+            # 硬约束：运行节点必须满足峰值负载要求，避免策略过度激进
+            if running_cnt < peak_required_running:
+                need = peak_required_running - running_cnt
+                move_from_sleeping = min(need, sleeping_cnt)
+                sleeping_cnt -= move_from_sleeping
+                running_cnt += move_from_sleeping
+                need -= move_from_sleeping
+                if need > 0:
+                    move_from_to_sleep = min(need, to_sleep_cnt - min_to_sleep)
+                    to_sleep_cnt -= max(0, move_from_to_sleep)
+                    running_cnt += max(0, move_from_to_sleep)
 
             # 计算百分比，最后一项用剩余避免四舍五入导致结果大于100%
             if total_nodes > 0:

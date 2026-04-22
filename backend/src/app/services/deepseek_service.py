@@ -193,6 +193,7 @@ def analyze_prediction_data(
     max_load = max(predicted_loads) if predicted_loads else 0
     min_load = min(predicted_loads) if predicted_loads else 0
     avg_util = sum(utilization) / len(utilization) if utilization else 0
+    required_peak_nodes = max(1, int((max_load + core_per_node - 1) // core_per_node)) if core_per_node > 0 else 1
     
     # 找出低负载时段（利用率 < 40%）
     low_load_hours = [i for i, util in enumerate(utilization) if util < 40]
@@ -234,6 +235,8 @@ def analyze_prediction_data(
      - running_nodes + to_sleep_nodes + sleeping_nodes 的“X”之和必须等于总节点数 {total_nodes}
      - 三个百分比 Y% 之和必须等于 100%
      - to_sleep_nodes 的比例必须 **>= 5%**（即：to_sleep_nodes 的 X 必须 >= ceil({total_nodes} * 0.05)）
+     - running_nodes 的 X 必须 **>= {required_peak_nodes}**（该值来自峰值负载约束：ceil({max_load:.1f} / {core_per_node})）
+     - 不允许给出激进到不可执行的策略，保证高峰小时不出现明显算力缺口
 
 2. **负载特征**（effects）：
    - 功率口径：单节点运行功率 20KWh/24h，单节点待机态功率 8KWh/24h
@@ -243,6 +246,9 @@ def analyze_prediction_data(
    - peak_utilization: 峰值利用率
    - min_utilization: 最低利用率
    - utilization_range: 利用率范围（如：20.5% - 85.3%）
+   - suggested_daily_energy: 建议策略日耗电量估算（如：4320.0 kWh）
+   - actual_daily_energy: 实际日耗电估算量（如：7680.0 kWh）
+   - saving_efficiency: 节能效率（如：43.75%）
 
 3. **任务影响**（impact）：
    - delay: 预计任务延迟（如：<5%，可接受）
@@ -264,7 +270,10 @@ def analyze_prediction_data(
     "load_stability": "稳定/波动较大",
     "peak_utilization": "X.X%",
     "min_utilization": "X.X%",
-    "utilization_range": "X.X% - X.X%"
+    "utilization_range": "X.X% - X.X%",
+    "suggested_daily_energy": "X.X kWh",
+    "actual_daily_energy": "X.X kWh",
+    "saving_efficiency": "X.X%"
   }},
   "impact": {{
     "delay": "...",
@@ -348,33 +357,32 @@ def generate_rule_based_analysis(
     # 计算平均利用率
     avg_util = sum(utilization) / len(utilization) if utilization else 0
     
-    # 根据平均利用率计算建议节点数
-    if avg_util < 30:
-        running_pct = 0.4
-        to_sleep_pct = 0.3
-        sleeping_pct = 0.3
-    elif avg_util < 50:
-        running_pct = 0.6
-        to_sleep_pct = 0.25
-        sleeping_pct = 0.15
-    elif avg_util < 70:
-        running_pct = 0.75
-        to_sleep_pct = 0.15
-        sleeping_pct = 0.1
-    else:
-        running_pct = 0.9
-        to_sleep_pct = 0.1
-        sleeping_pct = 0.0
-    
-    running_nodes = int(total_nodes * running_pct)
-    to_sleep_nodes = int(total_nodes * to_sleep_pct)
-    sleeping_nodes = total_nodes - running_nodes - to_sleep_nodes
-    
     # 计算实际的负载统计
     total_cores = total_nodes * core_per_node
     avg_load = sum(predicted_loads) / len(predicted_loads) if predicted_loads else 0
     max_load = max(predicted_loads) if predicted_loads else 0
     min_load = min(predicted_loads) if predicted_loads else 0
+
+    # 节点建议：先满足峰值负载，再给少量冗余，避免建议过于激进
+    required_peak_nodes = max(1, int((max_load + core_per_node - 1) // core_per_node)) if core_per_node > 0 else 1
+    avg_required_nodes = max(1, int((avg_load + core_per_node - 1) // core_per_node)) if core_per_node > 0 else 1
+    reserve_nodes = max(1, int(total_nodes * 0.05))
+    running_nodes = min(total_nodes, max(required_peak_nodes, avg_required_nodes + reserve_nodes))
+
+    min_to_sleep_nodes = max(1, int((total_nodes * 0.05) + 0.9999))
+    preferred_to_sleep = max(min_to_sleep_nodes, int(total_nodes * 0.15))
+    to_sleep_nodes = min(total_nodes - running_nodes, preferred_to_sleep)
+    if to_sleep_nodes < min_to_sleep_nodes:
+        # 兜底：当资源紧张时优先满足峰值运行，待机节点至少为0
+        to_sleep_nodes = max(0, min(total_nodes - running_nodes, min_to_sleep_nodes))
+
+    sleeping_nodes = max(0, total_nodes - running_nodes - to_sleep_nodes)
+    if running_nodes + to_sleep_nodes + sleeping_nodes != total_nodes:
+        sleeping_nodes = max(0, total_nodes - running_nodes - to_sleep_nodes)
+
+    running_pct = (running_nodes / total_nodes * 100) if total_nodes > 0 else 0
+    to_sleep_pct = (to_sleep_nodes / total_nodes * 100) if total_nodes > 0 else 0
+    sleeping_pct = max(0.0, 100.0 - running_pct - to_sleep_pct)
     
     # 计算负载波动
     load_variance = max_load - min_load
@@ -389,6 +397,21 @@ def generate_rule_based_analysis(
     active_cores = running_nodes * core_per_node
     optimized_util = (avg_load / active_cores * 100) if active_cores > 0 else 0
     optimized_util = min(100.0, optimized_util)  # 不超过100%
+
+    # 按前端展示口径估算日耗电
+    running_power = 20
+    standby_power = 8
+    actual_daily_energy = 0.0
+    for load in predicted_loads:
+        running_hour_nodes = min(total_nodes, max(0, int((load + core_per_node - 1) // core_per_node)))
+        standby_hour_nodes = max(0, total_nodes - running_hour_nodes)
+        actual_daily_energy += running_hour_nodes * running_power + standby_hour_nodes * standby_power
+    suggested_daily_energy = running_nodes * running_power * 24 + to_sleep_nodes * standby_power * 24
+    saving_efficiency = (
+        ((actual_daily_energy - suggested_daily_energy) / actual_daily_energy) * 100
+        if actual_daily_energy > 0
+        else 0
+    )
     
     # 评估任务影响
     if avg_util < 50:
@@ -417,7 +440,10 @@ def generate_rule_based_analysis(
             "load_stability": load_stability,
             "peak_utilization": f"{max_util:.1f}%",
             "min_utilization": f"{min_util:.1f}%",
-            "utilization_range": f"{min_util:.1f}% - {max_util:.1f}%"
+            "utilization_range": f"{min_util:.1f}% - {max_util:.1f}%",
+            "suggested_daily_energy": f"{suggested_daily_energy:.1f} kWh",
+            "actual_daily_energy": f"{actual_daily_energy:.1f} kWh",
+            "saving_efficiency": f"{saving_efficiency:.2f}%"
         },
         "impact": {
             "delay": delay,
