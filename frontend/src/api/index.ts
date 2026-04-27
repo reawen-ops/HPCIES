@@ -105,6 +105,9 @@ export interface PredictionResponse {
     peak_utilization: string;
     min_utilization: string;
     utilization_range: string;
+    suggested_daily_energy?: string;
+    actual_daily_energy?: string;
+    saving_efficiency?: string;
   };
   impact: {
     delay: string;
@@ -250,6 +253,9 @@ export interface DatePredictionResponse {
     peak_utilization: string;
     min_utilization: string;
     utilization_range: string;
+    suggested_daily_energy?: string;
+    actual_daily_energy?: string;
+    saving_efficiency?: string;
   };
   impact: {
     delay: string;

@@ -902,6 +902,45 @@ def predict_date(
         # 不阻塞预测接口
         pass
 
+    # 统一在后端计算关键能耗指标，不再使用DeepSeek返回的同名字段
+    try:
+        running_power = 20.0
+        standby_power = 8.0
+
+        final_running_cnt = _parse_nodes_str((strategy or {}).get("running_nodes")) or 0
+        final_to_sleep_cnt = _parse_nodes_str((strategy or {}).get("to_sleep_nodes")) or 0
+
+        actual_daily_energy = 0.0
+        for load in numeric_predicted_loads:
+            running_hour_nodes = (
+                min(total_nodes, max(0, int(math.ceil(load / core_per_node))))
+                if core_per_node > 0
+                else 0
+            )
+            standby_hour_nodes = max(0, total_nodes - running_hour_nodes)
+            actual_daily_energy += (
+                running_hour_nodes * running_power
+                + standby_hour_nodes * standby_power
+            )
+
+        suggested_daily_energy = (
+            final_running_cnt * running_power * 24
+            + final_to_sleep_cnt * standby_power * 24
+        )
+        saving_efficiency = (
+            ((actual_daily_energy - suggested_daily_energy) / actual_daily_energy) * 100
+            if actual_daily_energy > 0
+            else 0.0
+        )
+
+        effects = dict(effects or {})
+        effects["actual_daily_energy"] = f"{actual_daily_energy:.1f} kWh"
+        effects["suggested_daily_energy"] = f"{suggested_daily_energy:.1f} kWh"
+        effects["saving_efficiency"] = f"{saving_efficiency:.2f}%"
+    except Exception:
+        # 不阻塞预测接口
+        pass
+
     return DatePredictionResponse(
         date=date,
         labels=labels,

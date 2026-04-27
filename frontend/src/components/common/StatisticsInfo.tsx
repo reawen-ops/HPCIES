@@ -11,6 +11,14 @@ type StatisticsInfoProps = {
   selectedDate?: string;
 };
 
+const parsePercentText = (value?: string): number | null => {
+  if (!value) return null;
+  const matched = value.match(/-?\d+(\.\d+)?/);
+  if (!matched) return null;
+  const parsed = Number(matched[0]);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const StatisticsInfo = ({ selectedDate }: StatisticsInfoProps) => {
   const [stats, setStats] = useState<ClusterStats | null>(null);
   const [accuracyPercent, setAccuracyPercent] = useState<number | null>(null);
@@ -57,16 +65,7 @@ const StatisticsInfo = ({ selectedDate }: StatisticsInfoProps) => {
           setAccuracyPercent(Math.max(0, Math.min(100, accuracy)));
         }
 
-        const savingValues = (resp.energy_saving ?? []).filter((v) =>
-          Number.isFinite(v),
-        );
-        if (savingValues.length === 0) {
-          setAvgSavingEfficiency(null);
-        } else {
-          const avgSaving =
-            savingValues.reduce((sum, v) => sum + v, 0) / savingValues.length;
-          setAvgSavingEfficiency(avgSaving);
-        }
+        setAvgSavingEfficiency(parsePercentText(resp.effects?.saving_efficiency));
       })
       .catch(() => {
         setAccuracyPercent(null);
