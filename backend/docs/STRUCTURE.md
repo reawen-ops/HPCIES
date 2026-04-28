@@ -7,6 +7,7 @@
 - `requirements.txt`：后端依赖列表。
 - `README.md`：后端使用说明。
 - `docs/`：后端文档（当前目录）。
+- `scripts/`：数据库迁移、CSV 导入、用户默认配置重置、数据预览等脚本。
 - `src/`：
   - `main.py`：FastAPI 入口。
   - `hpcies.sqlite3`：默认 SQLite 数据库文件。
@@ -62,10 +63,7 @@
   - `security.py`：
     - 密码哈希 / 验证：`hash_password`, `verify_password`
     - 会话 token 生成：`create_session`
-    - `rebuild_node_states()`：根据总节点数生成默认 `node_states` 建议矩阵（部分已被 DeepSeek 节能策略覆盖）。
-
-- `worker/`
-  - 预留后台任务 / 定时任务位置，目前仅有 `__init__.py` 占位。
+    - `rebuild_node_states()`：根据总节点数生成默认 `node_states` 建议矩阵（全局），后续可能被 DeepSeek 节能策略覆盖。
 
 ---
 
@@ -81,3 +79,12 @@
    - 通过 `get_connection()` 获取 SQLite 连接。
    - 使用 `get_current_user()`（在 `auth.py`）从 `sessions` + `users` 表校验 token。
    - 业务路由在此基础上读写 `user_profile` / `historical_usage` / `node_states` / `chat_*` 等表。
+
+---
+
+## 常用脚本（`backend/scripts/`）
+
+- `migrate_remove_user_id.py`：将 `historical_usage`、`node_states` 迁移为无 `user_id` 的新结构。
+- `import_usage_csv.py`：交互式导入本地 CSV 到 `historical_usage`。
+- `reset_user_profile_defaults.py`：将所有用户配置重置为演示默认值（`38` 节点、`64` 核、`has_history=1`）。
+- `preview_db_tables.py`：预览数据库中各表前 50 条数据。

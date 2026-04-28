@@ -83,7 +83,7 @@ export const apiClient = axios.create({
 
 ### `uploadHistory(file)`
 
-- **描述**：上传历史 CSV 文件并导入后端。
+- **描述**：上传历史 CSV 文件并导入后端。当前演示模式下主流程不要求用户在前端执行此操作，但接口仍保留。
 - **签名**：
   ```ts
   uploadHistory(file: File): Promise<{
@@ -117,6 +117,10 @@ export const apiClient = axios.create({
   - `utilization: number[]`
   - `energy_saving: number[]`
   - `strategy.*` / `effects.*` / `impact.*`
+  - `effects.suggested_daily_energy?`: 建议策略日耗电量（后端统一计算）
+  - `effects.actual_daily_energy?`: 实际日耗电估算量（后端统一计算）
+  - `effects.saving_efficiency?`: 节能效率（后端统一计算）
+  - `impact.immediate_capacity?`: 可立即启动容量
 - **后端接口**：`GET /api/predict-date`
 
 ### `fetchNodeMatrix()`
@@ -133,7 +137,7 @@ export const apiClient = axios.create({
 
 ### `updateClusterConfig(payload)`
 
-- **描述**：更新集群配置（节点数 / 每节点核心数），通常在 Welcome 向导中使用。
+- **描述**：更新集群配置（节点数 / 每节点核心数）。当前演示模式下新注册用户已默认初始化为 `38` 节点、`64` 核/节点，接口仍保留用于手动调整。
 - **签名**：
   ```ts
   updateClusterConfig(payload: { node_count: number; core_per_node: number }): Promise<void>

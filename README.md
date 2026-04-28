@@ -4,7 +4,7 @@ High-performance Computers Intelligent Energy-saving Scheduler
 
 这是一个端到端的 HPC 集群智能节能调度系统，包括：
 
-- **后端（`backend/`）**：FastAPI + SQLite，负责用户认证、历史数据导入、对接 LSTM 预测服务、调用 DeepSeek AI、生成节能策略并管理节点状态。
+- **后端（`backend/`）**：FastAPI + SQLite，负责用户认证、历史数据存储、对接 LSTM 预测服务、调用 DeepSeek AI、生成节能策略并管理节点状态。
 - **前端（`frontend/`）**：React + TypeScript + Vite，提供预测曲线、节能策略、节点矩阵与 AI 助手的可视化界面。
 
 完整文档请查看 `docs/` 目录以及前后端各自的 `docs/` 子目录。
@@ -26,7 +26,7 @@ HPCIES/
 
 - 后端：`backend/README.md`，以及 `backend/docs/` 下的：`API.md`、`STRUCTURE.md`、`FLOW.md`
 - 前端：`frontend/README.md`，以及 `frontend/docs/` 下的：`API.md`、`STRUCTURE.md`、`FLOW.md`
-- 顶层使用与接口约定：`docs/USAGE_GUIDE.md`、`docs/NODE_COUNT_FLOW.md`、`docs/API.md`
+- 顶层说明：当前以本 README 作为整体项目说明入口
 
 ---
 
@@ -65,16 +65,17 @@ npm run dev
 ## 功能简介（从用户视角）
 
 - **负载预测与节能策略**
-  - 上传历史 CSV 数据，由后端写入 SQLite。
+  - 演示阶段默认使用数据库中预先导入的历史核使用数据，用户登录后可直接查看结果。
   - 调用外部 LSTM 模型，对指定日期执行 24 小时单步滚动预测。
-  - 使用 DeepSeek AI 对预测结果做分析，生成节能策略（休眠时段 + 节点分布）、负载特征与任务影响评估。
-  - 节能策略中的节点分布会同步到 `node_states` 表，前端以节点矩阵形式展示。
+  - 使用 DeepSeek AI 分析预测结果，生成节能策略（休眠时段 + 节点分布）、负载特征与任务影响评估。
+  - `running_nodes / to_sleep_nodes / sleeping_nodes` 会经过后端约束修正，随后同步写入 `node_states`，前端以节点矩阵形式展示。
+  - `建议策略日耗电量 / 实际日耗电估算量 / 节能效率` 由后端根据最终节点策略统一计算，前端直接展示。
 
 - **AI 助手**
   - 多会话聊天，支持历史会话列表、新建会话、删除会话。
   - 用户在主页就某一天的预测曲线提问时，前端会把当前选中的日期传给后端，后端自动将该日真实数据与预测摘要注入给 DeepSeek，保证回答贴合实际。
 
-更多细节（接口、结构与流程）请参考 `backend/docs/*`、`frontend/docs/*` 以及 `docs/USAGE_GUIDE.md`。
+更多细节（接口、结构与流程）请参考 `backend/docs/*` 与 `frontend/docs/*`。
 
 ---
 
@@ -108,7 +109,7 @@ npm run dev
 - **前端核心模块**
   - 页面：`frontend/src/pages/Home/MainPage.tsx` 为主页面调度中心
   - 布局：`frontend/src/components/layout/Header`、`Sidebar`、`ScrollPanel`
-  - 预测与节能：`frontend/src/components/ui/Chart/PredictionChart.tsx`、`NodeMatrix.tsx`
+  - 预测与节能：`frontend/src/components/ui/PredictionChart.tsx`、`NodeMatrix.tsx`
   - AI 对话：`frontend/src/components/common/ChatContainer.tsx` + 侧边栏会话管理
 
 ---

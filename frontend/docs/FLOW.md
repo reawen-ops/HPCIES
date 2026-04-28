@@ -37,23 +37,17 @@
      - 跳转到 `/`（首页 MainPage）。
 
 3. 进入首页后，`MainPage` 在 `useEffect` 中调用 `refreshMe()`：
-   - 触发 `authMe()` 请求，获取 `user` + `profile`。
-   - 决定是否显示 Welcome 向导（未配置节点 / 未上传历史数据时显示）。
+  - 触发 `authMe()` 请求，获取 `user` + `profile`。
+  - 演示模式下新用户默认已拥有 `38` 个节点、每节点 `64` 核的配置，可直接进入主页。
+4. 登录或注册后进入主页时，系统会弹出一次数据来源提示框，告知当前系统所用数据来自华北电力大学高性能计算平台，当前系统仅用于演示。
 
 ---
 
-## 3. 首次使用：上传历史数据 & 配置集群
+## 3. 演示模式下的数据来源
 
-1. `MainPage` 发现 `needsSetup === true`，在主界面上方渲染 `Welcome` 组件。
-2. 用户在 `Welcome` 中：
-   - 上传 CSV 文件 → 调用 `uploadHistory(file)`：
-     - 返回导入条数、推断节点数、每节点核心数、建议预测日期等。
-   - 调整或确认节点数和每节点核心数 → 调用 `updateClusterConfig({ node_count, core_per_node })`。
-3. `Welcome` 完成后调用 `onComplete(config)`：
-   - `MainPage` 中：
-     - 再次 `refreshMe()`，确保 profile 最新。
-     - 更新 `selectedDate`（优先使用 `suggestedDate`，否则取昨天）。
-     - 触发 `sidebarRefreshTrigger`，让 Sidebar 重新拉取历史树。
+1. 当前前端主流程不再要求用户上传 CSV。
+2. 系统直接读取后端数据库中预先导入的历史核使用数据。
+3. 若管理员需要重新导入数据，可通过后端接口或脚本完成，前端无需承担首次配置流程。
 
 ---
 
@@ -61,8 +55,8 @@
 
 `MainPage` 是前端的“调度中心”，负责：
 
-- Header：显示用户信息和系统标题。
-- Sidebar：选择历史日期、切换/新建对话。
+- Header：显示用户信息、系统标题、数据来源说明，并支持展开/收起。
+- Sidebar：切换/新建对话，并支持展开/收起。
 - StatisticsInfo：展示集群统计概览。
 - PredictionChart：展示 24 小时预测，对应选中日期。
 - NodeMatrix：展示节点矩阵，与节能策略对应。
@@ -83,13 +77,10 @@
 
 ### 选择日期
 
-1. 用户在 Sidebar 的“数据详情”中点击某个日期：
-   - `Sidebar` 调用 `onSelectDate(day.date)`。
-   - `MainPage` 更新 `selectedDate`。
-
-2. 或者用户在 `PredictionChart` 的日期输入框中手动选择日期：
+1. 用户在 `PredictionChart` 的日期输入框中手动选择日期：
    - 触发 `onChangeDate` 回调。
    - 同样更新 `selectedDate`。
+2. 日期选择范围被限制为 `2025-04-01` 到 `2025-11-30`，首页默认日期为 `2025-11-01`。
 
 ### 拉取预测数据
 
@@ -98,8 +89,9 @@
    - `fetchPredictionForDate(selectedDate, range)`（当前 range 固定为 "今日"）。
 3. 收到数据后：
    - 构造 Chart.js 所需的 `chartData`。
-   - 绘制“当天实际 / 历史平均 / 节能预测”三条曲线。
+   - 绘制“当天实际 / 节能预测”对比曲线。
    - 显示来自后端 / DeepSeek 的 `strategy`、`effects`、`impact`。
+   - 其中 `建议策略日耗电量 / 实际日耗电估算量 / 节能效率` 由后端统一计算后返回。
 4. 成功拉取数据时，调用 `onPredictionUpdated()` 回调：
    - `MainPage` 将 `nodeMatrixRefreshTrigger` 自增。
 

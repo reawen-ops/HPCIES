@@ -13,7 +13,8 @@
   - **请求体**：
     - `username`: string
     - `password`: string
-  - **返回**：`200 OK`，空响应。
+  - **返回**：`200 OK`。
+  - **补充说明**：注册完成后，后端会为该用户初始化默认配置：`node_count=38`、`core_per_node=64`、`has_history=1`。
 
 - **POST `/api/auth/login`**
   - **说明**：用户登录，返回会话 token。
@@ -46,7 +47,7 @@
 ## 集群统计与节点矩阵（`others.py`）
 
 - **GET `/api/stats`**
-  - **说明**：获取当前用户的集群统计信息。
+  - **说明**：获取当前用户的集群统计信息。节点配置按用户隔离，但历史数据读取当前数据库中的全局 `historical_usage`。
   - **鉴权**：需要登录。
   - **返回**：`ClusterStats`
     - `total_nodes`: 总节点数
@@ -57,7 +58,7 @@
     - `avg_utilization`: 平均利用率（%）
 
 - **GET `/api/nodes`**
-  - **说明**：获取当前用户的节点矩阵建议（节能策略对应的节点运行 / 待休眠 / 休眠状态）。
+  - **说明**：获取当前节能策略对应的节点矩阵建议（运行 / 待休眠 / 休眠）。演示阶段 `node_states` 为全局表，不再按 `user_id` 隔离。
   - **鉴权**：需要登录。
   - **返回**：`NodeMatrixResponse`
     - `total_nodes`: number
@@ -74,7 +75,7 @@
     - `years: Array<{ year: number; months: Array<{ month: number; days: Array<{ date: string }> }> }>`
 
 - **POST `/api/upload-history`**
-  - **说明**：上传历史 CSV 文件，导入 `historical_usage`。
+  - **说明**：上传历史 CSV 文件，导入 `historical_usage`。演示模式下主流程通常通过脚本预先导入数据，但接口仍保留。
   - **鉴权**：需要登录。
   - **请求**：`multipart/form-data`
     - `file`: CSV 文件，字段名 `file`
@@ -82,7 +83,7 @@
     - `success`: boolean
     - `rows_imported`: number
     - `estimated_nodes`: number
-    - `core_per_node`: number
+    - `core_per_node`: number（当前实现默认推断为 64）
     - `suggested_date?`: string（推荐预测日期）
     - `data_range?`: `{ start: string; end: string }`
 
@@ -114,7 +115,7 @@
     - `suggested_nodes`: number
 
 - **GET `/api/predict-date`**
-  - **说明**：根据用户上传的历史数据 + LSTM 模型，对某一天的 24 小时负载进行“单步滚动预测”，并给出节能策略。
+  - **说明**：基于数据库中历史数据 + LSTM 模型，对某一天的 24 小时负载进行“单步滚动预测”，并给出节能策略。
   - **鉴权**：需要登录。
   - **参数**：
     - `date`: string，必填，格式 `YYYY-MM-DD`
@@ -134,7 +135,14 @@
       - `to_sleep_nodes`: `"X 个 (Y%)"`（强约束：比例 ≥ 5%）
       - `sleeping_nodes`: `"X 个 (Y%)"`
     - `effects`: 负载特征分析
+      - 可能包含：`avg_utilization`、`optimized_utilization`、`load_stability`、`peak_utilization`、`min_utilization`、`utilization_range`
+      - 以及后端统一计算的：`suggested_daily_energy`、`actual_daily_energy`、`saving_efficiency`
     - `impact`: 任务影响分析
+      - 可能包含：`delay`、`queue_risk`、`immediate_capacity`、`emergency_response`
+  - **补充说明**：
+    - DeepSeek 给出的节点建议会经过后端硬约束修正。
+    - `running_nodes` 至少满足 `ceil(峰值预测负载 / 每节点核心数)`。
+    - `suggested_daily_energy / actual_daily_energy / saving_efficiency` 由后端根据最终节点策略统一计算，不以 DeepSeek 的同名返回值为准。
 
 ---
 

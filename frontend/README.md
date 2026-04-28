@@ -1,6 +1,6 @@
 # HPCIES - HPC 智能节能调度系统
 
-一个基于 React + TypeScript + Vite + Python FastAPI + SQLite 的现代化 HPC（高性能计算）集群智能节能调度系统前端应用。
+一个基于 React + TypeScript + Vite 的 HPC（高性能计算）集群智能节能调度系统前端应用，对接 FastAPI + SQLite 后端。
 
 ## 📋 项目简介
 
@@ -8,11 +8,11 @@ HPCIES（HPC Intelligent Energy Saving）是一个智能化的高性能计算集
 
 ### 核心功能
 
-- 🎯 **智能预测**：基于历史数据的核使用率预测曲线
+- 🎯 **智能预测**：基于数据库预置历史数据的核使用率预测曲线
 - 📊 **实时监控**：节点状态矩阵可视化展示
 - 💬 **AI 助手**：智能对话系统，提供节能建议
 - 📈 **统计分析**：节能效果和任务影响分析
-- ⚙️ **策略配置**：灵活的节能策略配置和管理
+- ⚙️ **演示模式**：用户注册登录后直接进入主页面，查看预置真实数据上的分析结果
 
 ## 🛠️ 技术栈
 
@@ -26,70 +26,15 @@ HPCIES（HPC Intelligent Energy Saving）是一个智能化的高性能计算集
 - **HTTP 客户端**: Axios 1.13.4
 - **图标**: React Icons 5.5.0
 
-### 后端技术栈
-
-- **框架**: Python FastAPI
-- **数据库**: SQLite
-- **API**: RESTful API
-
 ## 📁 项目结构
 
-```ts
-frontend/
-├── public/                 # 静态资源
-│   └── ies.svg
-├── src/
-│   ├── api/               # API 相关
-│   │   ├── endpoints/     # API 端点定义
-│   │   ├── hooks/         # API Hooks
-│   │   └── index.ts       # API 入口
-│   ├── assets/            # 静态资源
-│   │   ├── images/        # 图片资源
-│   │   └── styles/        # 全局样式
-│   │       ├── _variables.scss    # SCSS 变量
-│   │       ├── _mixins.scss       # SCSS Mixins
-│   │       ├── _functions.scss    # SCSS 函数
-│   │       └── index.scss         # 样式入口
-│   ├── components/        # React 组件
-│   │   ├── common/        # 通用组件
-│   │   │   ├── ChatContainer/    # 聊天容器
-│   │   │   └── StatisticsInfo/    # 统计信息
-│   │   ├── features/      # 功能组件
-│   │   │   └── Welcome/          # 欢迎引导
-│   │   ├── forms/         # 表单组件
-│   │   │   ├── LoginForm/        # 登录表单
-│   │   │   └── RegisterForm/     # 注册表单
-│   │   ├── layout/        # 布局组件
-│   │   │   ├── Header/           # 头部导航
-│   │   │   ├── Sidebar/          # 侧边栏
-│   │   │   └── Scroll/           # 滚动面板
-│   │   └── ui/            # UI 组件
-│   │       ├── Button/           # 按钮组件
-│   │       ├── Card/             # 卡片组件
-│   │       └── Chart/            # 图表组件
-│   │           ├── NodeMatrix/           # 节点矩阵
-│   │           └── PredictionChart/      # 预测曲线
-│   ├── hooks/             # 自定义 Hooks
-│   ├── pages/             # 页面组件
-│   │   ├── Home/          # 主页
-│   │   ├── Login/         # 登录页
-│   │   └── Register/     # 注册页
-│   ├── router/            # 路由配置
-│   ├── store/             # 状态管理
-│   ├── utils/             # 工具函数
-│   ├── App.tsx            # 根组件
-│   ├── App.css            # 全局样式
-│   ├── index.css          # 入口样式
-│   └── main.tsx           # 应用入口
-├── tests/                 # 测试文件
-├── .gitignore
-├── eslint.config.js       # ESLint 配置
-├── package.json
-├── tsconfig.json          # TypeScript 配置
-├── tsconfig.app.json
-├── tsconfig.node.json
-└── vite.config.ts         # Vite 配置
-```
+当前实际结构与职责请以 `frontend/docs/STRUCTURE.md` 为准。前端核心目录包括：
+
+- `src/api/`：接口封装与类型定义
+- `src/auth/`：认证上下文与本地存储
+- `src/components/`：布局、统计卡片、预测曲线、节点矩阵、聊天等组件
+- `src/pages/`：登录页、注册页、主页
+- `src/assets/styles/`：SCSS 变量与 mixin
 
 更多详细说明：
 
@@ -224,13 +169,7 @@ npm run lint
 
 ### API 集成
 
-1. 在 `src/api/endpoints/` 中定义 API 端点
-2. 在 `src/api/hooks/` 中创建自定义 Hooks
-3. 在组件中使用 Hooks 调用 API
-
-### 状态管理
-
-项目预留了 `src/store/` 目录用于状态管理，可根据需要集成 Redux、Zustand 等状态管理库。
+前端通过 `src/api/index.ts` 统一调用后端接口，不再维护单独的 `endpoints/`、`hooks/` 目录。
 
 ## 📦 构建和部署
 
@@ -292,4 +231,4 @@ HPCIES 开发团队
 
 ---
 
-**注意**: 本项目是 HPCIES 系统的前端部分，需要配合后端 API 服务使用。请确保后端服务已正确配置并运行。
+**注意**：当前系统处于演示模式，主页面默认展示数据库中预先导入的真实历史数据，无需用户在前端上传 CSV。

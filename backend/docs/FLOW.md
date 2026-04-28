@@ -49,23 +49,22 @@
 
 - 前端在进入首页时调用 **`GET /api/auth/me`**
   - 通过 token 查到用户和 `user_profile` 信息。
-  - 决定是否展示 Welcome 引导（上传 CSV / 配置节点数）。
+  - 当前演示模式下，新用户默认已初始化 `38` 个节点、每节点 `64` 核、`has_history=1`，可直接进入主页。
 
 ---
 
-## 三、历史数据上传与预测流程
+## 三、历史数据与预测流程
 
-### 1. 上传 CSV 历史数据
+### 1. 历史数据来源
 
-1. 用户在前端上传 CSV 文件。
-2. 前端调用 **`POST /api/upload-history`**（`UploadFile`）
-3. 后端流程（`others.py`）：
-   - 使用 `pandas` 读取文件流。
-   - 清洗数据（日期、小时、CPU 核时使用量等）。
-   - 将时间序列写入 `historical_usage(user_id, ts, cpu_load)` 表。
-   - 推断 `estimated_nodes` / `core_per_node`，返还给前端。
-
-4. 前端根据返回结果，引导用户确认 / 调整节点配置。
+1. 当前演示模式下，历史核使用数据通常由管理员预先导入 SQLite 数据库中的 `historical_usage(ts, cpu_load)`。
+2. 系统仍保留两种导入方式：
+   - 通过 **`POST /api/upload-history`**
+   - 通过 `backend/scripts/import_usage_csv.py` 脚本
+3. 导入流程：
+   - 使用 `pandas` 读取 CSV
+   - 清洗日期、小时、CPU 核时使用量
+   - 写入 `historical_usage(ts, cpu_load)` 表
 
 ### 2. 更新集群配置
 
@@ -98,13 +97,19 @@
      - 解析 `"X 个 (Y%)"`，做约束与归一化：
        - `running + to_sleep + sleeping == total_nodes`
        - `to_sleep` 比例 ≥ 5%
+       - `running_nodes >= ceil(峰值预测负载 / core_per_node)`
        - 百分比三项之和 = 100%
      - 用这三个数量**重建 `node_states` 表**（覆盖旧数据），保证与前端节点矩阵严格一致。
+   - 后端再基于“最终修正后的节点策略”统一计算：
+     - `suggested_daily_energy`
+     - `actual_daily_energy`
+     - `saving_efficiency`
    - 最终返回 `DatePredictionResponse` 给前端。
 
 3. 前端：
-   - `PredictionChart.tsx` 使用 `labels` + `actual_loads` + `history_avg_loads` + `predicted_loads` 绘制三条曲线。
+   - `PredictionChart.tsx` 使用 `labels` + `actual_loads` + `predicted_loads` 绘制对比曲线。
    - “节能策略”卡片展示 `strategy.*`。
+   - “负载特征”中的关键能耗指标直接展示后端计算结果。
    - 通知 `NodeMatrix` 组件刷新 `/api/nodes`，更新可视化矩阵。
 
 ---

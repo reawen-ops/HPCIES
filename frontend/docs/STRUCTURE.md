@@ -66,16 +66,14 @@
 #### `components/layout/`
 
 - `Header/`：
-  - `Header.tsx`：顶部导航栏，显示系统标题、当前用户名与“退出登录”按钮。
-  - `Header.module.scss`：头部布局与样式（左侧用户信息 + 居中标题）。
+  - `Header.tsx`：顶部导航栏，显示系统标题、当前用户名、退出登录按钮、数据来源说明及折叠按钮。
+  - `Header.module.scss`：头部布局与样式。
 - `Sidebar/`：
   - `Sidebar.tsx`：
-    - 左侧侧边栏，包含：
-      - “数据详情”：历史数据树（年 / 月 / 日）。
-      - “对话历史”：AI 对话会话列表 + “新对话”按钮 + 删除按钮。
+    - 左侧侧边栏，主要展示 AI 对话历史、新对话按钮与删除按钮。
     - 与 `MainPage` 通信：
-      - `onSelectDate(date)` 回调设置选中日期。
       - `onSelectSession(sessionId)` 回调切换会话。
+      - `collapsed / onToggleCollapse` 控制侧边栏展开与收起。
   - `Sidebar.module.scss`：树状结构 + 会话卡片样式。
 - `Scroll/ScrollPanel`：
   - 为主内容区域提供滚动容器和统一留白。
@@ -83,7 +81,7 @@
 #### `components/common/`
 
 - `StatisticsInfo`：
-  - 顶部统计信息卡片，使用 `fetchClusterStats` 展示节点数、平均利用率等。
+  - 顶部统计信息卡片，展示总节点数、总核心数、预测准确率、平均节能效率。
 - `ChatContainer`：
   - 右下侧聊天区域，展示 AI 会话消息列表与输入框。
   - 接收：
@@ -94,8 +92,7 @@
 #### `components/features/`
 
 - `Welcome`：
-  - 首次使用配置引导（上传 CSV、设置节点数/每节点核心数）。
-  - 完成后通过 `onComplete` 回调通知 `MainPage` 更新日期与侧边栏。
+  - 旧的首次使用配置引导组件，目前演示主流程已不再渲染，但代码仍保留以便后续扩展。
 - `LoadPredictor`：
   - 预测相关的功能组件（如手动触发预测）。
 
@@ -106,13 +103,12 @@
 
 #### `components/ui/`
 
-- `Card/StatsCard`：
-  - 统计信息展示卡片组件。
-- `Chart/PredictionChart`：
-  - 使用 `react-chartjs-2` 绘制 24 小时“当天实际 / 历史平均 / 节能预测”对比曲线。
+- `PredictionChart.tsx`：
+  - 使用 `react-chartjs-2` 绘制 24 小时“当天实际 / 节能预测”对比曲线。
   - 提供日期选择器和“显示模式 / 重新计算预测”控制。
+  - 在卡片中展示节能策略、负载特征、任务影响等数据。
   - 在每次成功拉取预测数据后触发 `onPredictionUpdated` 回调。
-- `Chart/NodeMatrix`：
+- `NodeMatrix.tsx`：
   - 根据 `/api/nodes` 返回的 `node_states` 绘制节点矩阵。
   - 接收 `refreshTrigger`，在预测数据更新后刷新矩阵。
 
@@ -121,12 +117,13 @@
 ### 页面：`src/pages/`
 
 - `Home/MainPage.tsx`：
-  - 系统主界面，负责协调 Header、Sidebar、StatisticsInfo、PredictionChart、NodeMatrix、ChatContainer 与 Welcome。
+  - 系统主界面，负责协调 Header、Sidebar、StatisticsInfo、PredictionChart、NodeMatrix、ChatContainer。
   - 管理关键状态：
     - `selectedDate`
     - `selectedSessionId`
     - `sidebarRefreshTrigger`
     - `nodeMatrixRefreshTrigger`
+    - 顶部栏 / 侧边栏折叠状态
   - 通过 props 将这些状态或回调传递给子组件。
 - `Login/LoginPage.tsx`：
   - 登录页面，包含 `LoginForm`。

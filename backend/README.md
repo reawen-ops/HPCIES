@@ -3,7 +3,7 @@
 本目录是 **HPC 智能节能调度系统** 的后端服务，基于 FastAPI 构建，负责：
 
 - 用户认证与会话管理
-- 历史负载数据 CSV 导入与清洗
+- 历史负载数据存储、导入与清洗
 - 对接外部 LSTM 预测服务，按日期做 24 小时单步滚动预测
 - 调用 DeepSeek 大模型分析预测结果，生成节能策略 / 负载特征 / 任务影响
 - 提供节点矩阵、预测曲线和 AI 对话的 REST API 给前端使用
@@ -77,13 +77,14 @@ uvicorn main:app --reload
   - 使用 PBKDF2-SHA256 存储密码，Session token 24 小时有效
 
 - **历史数据与预测**
-  - 上传 CSV 历史数据（`/api/upload-history`），写入 `historical_usage`
+  - 演示阶段默认使用数据库预先导入的历史数据；同时保留 CSV 导入能力（`/api/upload-history` 与脚本）
   - 获取历史数据日期树（`/api/history/tree`）
-  - 配置节点数与每节点核心数（`/api/config`）
+  - 配置节点数与每节点核心数（`/api/config`）；新注册用户默认初始化为 `38` 个节点、`64` 核/节点
   - 指定日期 24 小时滚动预测（`/api/predict-date`），对接 LSTM 服务并返回：
     - 实际负载 / 历史平均 / 预测负载
     - 节能策略（休眠时段 + 节点分布）
     - 负载特征与任务影响分析
+    - 后端统一计算的 `suggested_daily_energy`、`actual_daily_energy`、`saving_efficiency`
 
 - **节能节点矩阵**
   - 节能策略中的三类节点数量（必须运行 / 待休眠 / 休眠）会写入 `node_states`
@@ -107,24 +108,6 @@ uvicorn main:app --reload
 - `sessions`：登录会话（token）
 - `user_profile`：节点数 / 每节点核心数 / 历史数据标记
 - `historical_usage`：历史负载时间序列
-- `node_states`：节点矩阵状态（running/to_sleep/sleeping）
+- `node_states`：节点矩阵状态（running/to_sleep/sleeping，演示阶段为全局节点建议）
 - `chat_sessions` / `chat_messages`：AI 对话会话与消息
 - `prediction_points`：早期 demo 用的静态预测数据（目前主要用于兼容老接口）
-
----
-
-## 演示阶段数据库脚本
-
-- 迁移 `historical_usage`、`node_states` 去除 `user_id` 字段：
-
-```bash
-cd backend
-python scripts/migrate_remove_user_id.py
-```
-
-- 从本地 CSV 导入核使用数据到 `historical_usage`：
-
-```bash
-cd backend
-python scripts/import_usage_csv.py
-```
