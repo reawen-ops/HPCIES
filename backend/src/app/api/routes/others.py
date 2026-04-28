@@ -813,7 +813,7 @@ def predict_date(
         )
         impact = calculate_impact(numeric_predicted_loads)
 
-    # 由 DeepSeek 给出节点数量建议，并据此重建node_states（NodeMatrix 的唯一数据源）
+    # 由 DeepSeek 给出节点数量建议，并据此重建node_states
     # 三类数量之和必须等于total_nodes，百分比之和必须等于100%
     try:
         running_cnt = _parse_nodes_str((strategy or {}).get("running_nodes"))

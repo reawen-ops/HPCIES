@@ -90,7 +90,7 @@ def init_db() -> None:
         """
     )
 
-    # 创建节点状态表（演示阶段为全局节点状态，不按用户隔离）
+    # 创建节点状态表
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS node_states (
@@ -177,7 +177,7 @@ def init_db() -> None:
     except Exception:
         pass
 
-    # 创建历史使用数据表（演示阶段为全局历史数据，不按用户隔离）
+    # 创建历史使用数据表
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS historical_usage (
